@@ -190,3 +190,105 @@
   margin-bottom: 1rem;
   text-align: center;
 }
+
+/* ---------- Phase 13: GIS / Mapping ---------- */
+
+.camera-map-panel {
+  background: #1f1f1f;
+  padding: 1rem;
+  border-radius: 8px;
+}
+
+.camera-map-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+  flex-wrap: wrap;
+  border-bottom: 1px solid #333;
+  padding-bottom: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.camera-map-header h2 {
+  margin: 0;
+}
+
+.camera-map-meta {
+  color: #888;
+  font-size: 0.85rem;
+}
+
+.camera-map-status {
+  color: #888;
+  padding-bottom: 0.5rem;
+}
+
+.camera-map-error {
+  color: #ff4d4f;
+  background: #2b0000;
+  padding: 0.5rem;
+  border-radius: 4px;
+  margin-bottom: 0.5rem;
+}
+
+/* Leaflet cannot measure a container that has no explicit height. */
+.camera-map {
+  position: relative;
+  height: 420px;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.camera-map-canvas {
+  height: 100%;
+  width: 100%;
+}
+
+.camera-map-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(31, 31, 31, 0.82);
+  color: #ccc;
+  text-align: center;
+  padding: 1rem;
+  z-index: 500;
+}
+
+/* Markers are div icons, so their glyphs are styled here, not bundled. */
+.sentinel-camera-pin {
+  display: block;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.6);
+}
+
+.sentinel-hop {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #1890ff;
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: bold;
+  border: 2px solid #fff;
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.6);
+}
+
+.sentinel-hop-selected {
+  background: #fa8c16;
+  transform: scale(1.18);
+}
+
+.sentinel-popup {
+  font-size: 0.85rem;
+  line-height: 1.45;
+}

@@ -32,6 +32,8 @@ class VehicleTimelineEntry(BaseModel):
     camera_code: str
     camera_name: str
     location: str | None
+    latitude: float | None = None
+    longitude: float | None = None
     event_type: str
     confidence: float | None
     timestamp: datetime

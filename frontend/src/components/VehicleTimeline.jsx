@@ -1,10 +1,30 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { analyticsService } from '../api/analyticsService';
 
-export default function VehicleTimeline({ plateNumber, onClose }) {
+export default function VehicleTimeline({
+  plateNumber,
+  onClose,
+  onTimelineLoaded,
+  selectedEventId,
+  onSelectEvent,
+}) {
   const [timeline, setTimeline] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  // Held in a ref so the map can share this fetch without the callback
+  // identity re-triggering it — the timeline is still fetched once per plate.
+  const onTimelineLoadedRef = useRef(onTimelineLoaded);
+
+  useEffect(() => {
+    onTimelineLoadedRef.current = onTimelineLoaded;
+  }, [onTimelineLoaded]);
+
+  const publishTimeline = (entries) => {
+    if (onTimelineLoadedRef.current) {
+      onTimelineLoadedRef.current(entries);
+    }
+  };
 
   useEffect(() => {
     if (!plateNumber) return;
@@ -17,11 +37,15 @@ export default function VehicleTimeline({ plateNumber, onClose }) {
         const data = await analyticsService.getVehicleTimeline(plateNumber);
         if (active) {
           // The backend guarantees chronological order (asc) based on the actual API contract
-          setTimeline(data.timeline || []);
+          const entries = data.timeline || [];
+          setTimeline(entries);
+          publishTimeline(entries);
         }
       } catch (err) {
         if (active) {
           setError(err.message || 'Failed to fetch timeline.');
+          setTimeline([]);
+          publishTimeline([]);
         }
       } finally {
         if (active) {
@@ -75,7 +99,17 @@ export default function VehicleTimeline({ plateNumber, onClose }) {
       {!loading && !error && timeline.length > 0 && (
         <div className="timeline-entries" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxHeight: '600px', overflowY: 'auto' }}>
           {timeline.map((entry) => (
-            <div key={entry.event_id} style={{ padding: '1rem', background: '#2c2c2c', borderRadius: '4px', borderLeft: '4px solid #1890ff' }}>
+            <div
+              key={entry.event_id}
+              onClick={() => onSelectEvent && onSelectEvent(entry.event_id)}
+              style={{
+                padding: '1rem',
+                background: entry.event_id === selectedEventId ? '#123a5c' : '#2c2c2c',
+                borderRadius: '4px',
+                borderLeft: `4px solid ${entry.event_id === selectedEventId ? '#40a9ff' : '#1890ff'}`,
+                cursor: onSelectEvent ? 'pointer' : 'default',
+              }}
+            >
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', color: '#aaa', fontSize: '0.85rem' }}>
                 <span>{new Date(entry.timestamp).toLocaleString()}</span>
                 <span>{entry.camera_name || entry.camera_code}</span>

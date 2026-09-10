@@ -83,6 +83,8 @@ def get_vehicle_timeline(plate_number: str, db: Session = Depends(get_db)):
         .all()
     )
 
+    # An event has no coordinates of its own — it inherits the position of the
+    # camera that recorded it, so the map can plot the vehicle's movement.
     timeline = [
         VehicleTimelineEntry(
             event_id=event.id,
@@ -90,6 +92,8 @@ def get_vehicle_timeline(plate_number: str, db: Session = Depends(get_db)):
             camera_code=camera.camera_code,
             camera_name=camera.name,
             location=camera.location,
+            latitude=camera.latitude,
+            longitude=camera.longitude,
             event_type=event.event_type,
             confidence=event.confidence,
             timestamp=event.timestamp,
