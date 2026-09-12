@@ -1,5 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { analyticsService } from '../api/analyticsService';
+import { MapContainer, TileLayer, Marker, Polyline, Popup, useMap } from 'react-leaflet';
+import L from 'leaflet';
+
+function RouteMapBounds({ points }) {
+  const map = useMap();
+  useEffect(() => {
+    if (points && points.length > 0) {
+      const bounds = L.latLngBounds(points);
+      map.fitBounds(bounds, { padding: [20, 20], maxZoom: 16 });
+    }
+  }, [points, map]);
+  return null;
+}
 
 export default function VehicleTimeline({ plateNumber, onClose }) {
   const [timeline, setTimeline] = useState([]);
@@ -46,11 +59,20 @@ export default function VehicleTimeline({ plateNumber, onClose }) {
     );
   }
 
+  const validEntries = timeline.filter(entry => 
+    entry.latitude !== null && entry.latitude !== undefined &&
+    entry.longitude !== null && entry.longitude !== undefined &&
+    entry.latitude >= -90 && entry.latitude <= 90 &&
+    entry.longitude >= -180 && entry.longitude <= 180
+  );
+  
+  const mapPoints = validEntries.map(entry => [entry.latitude, entry.longitude]);
+
   return (
     <div className="vehicle-timeline" style={{ background: '#1f1f1f', padding: '1rem', borderRadius: '8px', position: 'relative' }}>
       <button 
         onClick={onClose} 
-        style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer', fontSize: '1.2rem' }}
+        style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer', fontSize: '1.2rem', zIndex: 1000 }}
         aria-label="Close timeline"
       >
         &times;
@@ -73,20 +95,52 @@ export default function VehicleTimeline({ plateNumber, onClose }) {
       )}
 
       {!loading && !error && timeline.length > 0 && (
-        <div className="timeline-entries" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxHeight: '600px', overflowY: 'auto' }}>
-          {timeline.map((entry) => (
-            <div key={entry.event_id} style={{ padding: '1rem', background: '#2c2c2c', borderRadius: '4px', borderLeft: '4px solid #1890ff' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', color: '#aaa', fontSize: '0.85rem' }}>
-                <span>{new Date(entry.timestamp).toLocaleString()}</span>
-                <span>{entry.camera_name || entry.camera_code}</span>
-              </div>
-              <div style={{ fontWeight: 'bold' }}>
-                {entry.event_type}
-                {entry.confidence && <span style={{ marginLeft: '0.5rem', fontWeight: 'normal', color: '#aaa' }}>({(entry.confidence * 100).toFixed(0)}%)</span>}
-              </div>
-              {entry.location && <div style={{ fontSize: '0.85rem', color: '#888', marginTop: '0.25rem' }}>Location: {entry.location}</div>}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          {/* Map Section */}
+          {mapPoints.length > 0 && (
+            <div className="timeline-map" style={{ height: '300px', width: '100%', borderRadius: '8px', overflow: 'hidden' }}>
+              <MapContainer 
+                center={mapPoints[0]} 
+                zoom={13} 
+                style={{ height: '100%', width: '100%', zIndex: 1 }}
+              >
+                <TileLayer
+                  attribution='&amp;copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                />
+                <RouteMapBounds points={mapPoints} />
+                <Polyline positions={mapPoints} color="#1890ff" weight={4} opacity={0.7} />
+                {validEntries.map((entry, index) => (
+                  <Marker key={`marker-${entry.event_id}-${index}`} position={[entry.latitude, entry.longitude]}>
+                    <Popup>
+                      <div style={{ fontSize: '0.85rem' }}>
+                        <strong>{entry.camera_name || entry.camera_code}</strong><br/>
+                        {new Date(entry.timestamp).toLocaleString()}<br/>
+                        Event: {entry.event_type}
+                      </div>
+                    </Popup>
+                  </Marker>
+                ))}
+              </MapContainer>
             </div>
-          ))}
+          )}
+
+          {/* Entries Section */}
+          <div className="timeline-entries" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxHeight: '400px', overflowY: 'auto' }}>
+            {timeline.map((entry) => (
+              <div key={entry.event_id} style={{ padding: '1rem', background: '#2c2c2c', borderRadius: '4px', borderLeft: '4px solid #1890ff' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', color: '#aaa', fontSize: '0.85rem' }}>
+                  <span>{new Date(entry.timestamp).toLocaleString()}</span>
+                  <span>{entry.camera_name || entry.camera_code}</span>
+                </div>
+                <div style={{ fontWeight: 'bold' }}>
+                  {entry.event_type}
+                  {entry.confidence && <span style={{ marginLeft: '0.5rem', fontWeight: 'normal', color: '#aaa' }}>({(entry.confidence * 100).toFixed(0)}%)</span>}
+                </div>
+                {entry.location && <div style={{ fontSize: '0.85rem', color: '#888', marginTop: '0.25rem' }}>Location: {entry.location}</div>}
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>

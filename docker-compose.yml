@@ -3,18 +3,69 @@ services:
   postgres:
     image: postgres:16
     container_name: sentinel-postgres
-
     environment:
       POSTGRES_DB: sentinel
       POSTGRES_USER: sentinel
       POSTGRES_PASSWORD: sentinel_password
-
     ports:
       - "5433:5432"
-
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
 
+  mediamtx:
+    image: bluenviron/mediamtx:latest
+    container_name: sentinel-mediamtx
+    ports:
+      - "8554:8554"  # RTSP
+      - "8889:8889"  # WebRTC
+      - "9997:9997"  # API
+    volumes:
+      - ./mediamtx.yml:/mediamtx.yml:ro
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: sentinel-backend
+    environment:
+      - DATABASE_URL=postgresql+psycopg2://sentinel:sentinel_password@postgres:5432/sentinel
+      - RTSP_CATALOG_URL=${RTSP_CATALOG_URL:-https://cctv.corp8.cloud/cameras.json}
+      - RTSP_CATALOG_TOKEN=${RTSP_CATALOG_TOKEN:-}
+      - RTSP_TRANSPORT=${RTSP_TRANSPORT:-tcp}
+      - WHEP_GATEWAY_URL=${WHEP_GATEWAY_URL:-http://103.250.160.189:8889}
+      - RTSP_GATEWAY_URL=${RTSP_GATEWAY_URL:-rtsp://103.250.160.189:8554}
+      - RTSP_USER=${RTSP_USER:-}
+      - RTSP_PASSWORD=${RTSP_PASSWORD:-}
+      - AI_MODEL_PATH=/app/models/yolov8n.pt
+      - ANPR_MODEL_PATH=/app/models/anpr.pt
+      - CORS_ORIGINS=*
+      - DEBUG=true
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./models:/app/models:ro
+    depends_on:
+      - postgres
+      - mediamtx
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: sentinel-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
     restart: unless-stopped
 
 volumes:

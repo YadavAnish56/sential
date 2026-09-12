@@ -314,6 +314,44 @@ class EasyOCRPlateRecognizer(BasePlateRecognizer):
             )
             candidates.append(candidate)
 
+        # For two-row or multi-segment plates (e.g. ['KA 02', 'MM 9091']):
+        # Assemble reading-order concatenated candidate (top-to-bottom, left-to-right)
+        if len(raw_results) > 1:
+            def sort_reading_order(item: Any) -> tuple[float, float]:
+                poly = item[0]
+                cy = float(np.mean([pt[1] for pt in poly]))
+                cx = float(np.mean([pt[0] for pt in poly]))
+                return (cy, cx)
+
+            valid_items = [
+                it for it in raw_results
+                if len(it) >= 3 and it[1] and isinstance(it[1], str) and it[1].strip()
+            ]
+            if len(valid_items) > 1:
+                sorted_items = sorted(valid_items, key=sort_reading_order)
+                combined_raw = " ".join(it[1].strip() for it in sorted_items)
+                combined_conf = float(np.mean([float(it[2]) for it in sorted_items]))
+
+                # Compute bounding box union
+                all_xs = [float(pt[0]) for it in sorted_items for pt in it[0]]
+                all_ys = [float(pt[1]) for it in sorted_items for pt in it[0]]
+                min_x = max(0.0, min(float(crop_w), min(all_xs)))
+                min_y = max(0.0, min(float(crop_h), min(all_ys)))
+                max_x = max(0.0, min(float(crop_w), max(all_xs)))
+                max_y = max(0.0, min(float(crop_h), max(all_ys)))
+                combined_bbox = (round(min_x, 2), round(min_y, 2), round(max_x, 2), round(max_y, 2))
+
+                norm_combined, is_valid_combined = normalize_plate(combined_raw)
+                combined_candidate = PlateCandidate(
+                    raw_text=combined_raw,
+                    normalized_plate=norm_combined,
+                    confidence=combined_conf,
+                    is_valid_format=is_valid_combined,
+                    pts_ms=pts_ms,
+                    plate_bbox=combined_bbox,
+                )
+                candidates.append(combined_candidate)
+
         if not candidates:
             return None
 

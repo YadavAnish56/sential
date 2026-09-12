@@ -1,0 +1,41 @@
+# Virtual environments
+backend/venv/
+venv/
+.venv/
+env/
+
+# Node dependencies and build output
+frontend/node_modules/
+frontend/dist/
+node_modules/
+
+# Version control
+.git/
+.gitignore
+
+# Large media files and archives
+*.mp4
+*.avi
+*.mkv
+*.mov
+*.zip
+
+# MediaMTX local Windows binaries
+mediamtx/mediamtx.exe
+
+# Python caches
+**/__pycache__/
+**/*.py[cod]
+**/.pytest_cache/
+
+# Local databases and logs
+*.db
+*.sqlite
+*.sqlite3
+*.log
+
+# OS / Editor metadata
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
