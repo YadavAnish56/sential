@@ -1,0 +1,6 @@
+paths:
+  all:
+    publishUser: ""
+    publishPass: ""
+    readUser: ""
+    readPass: ""
