@@ -276,7 +276,7 @@ describe('Phase 24A — CCTV Workstation Specifications & State Consistency', ()
 
     expect(screen.getByText('STAGE: CAM-001')).toBeInTheDocument();
     expect(screen.getByText('VIDEO:')).toBeInTheDocument();
-    expect(screen.getByText('AI PIPELINE:')).toBeInTheDocument();
+    expect(screen.getByText('AI Status')).toBeInTheDocument();
     expect(screen.getByText('RUNNING')).toBeInTheDocument();
     expect(screen.getByText('FRAMES:')).toBeInTheDocument();
     expect(screen.getByText('240')).toBeInTheDocument();
@@ -286,11 +286,11 @@ describe('Phase 24A — CCTV Workstation Specifications & State Consistency', ()
     expect(container.querySelector('.live-preview-container')).toBeInTheDocument();
     expect(container.querySelector('.live-video-element')).toBeInTheDocument();
     expect(container.querySelector('.live-intelligence-strip')).toBeInTheDocument();
-    expect(screen.getByText(/LATEST VEHICLE INTELLIGENCE/i)).toBeInTheDocument();
+    expect(screen.getByText(/Last Recognised Vehicle/i)).toBeInTheDocument();
   });
 
   // 3. Unavailable Test Camera State (CAM-CRUD)
-  it('3. unavailable test camera state: displays explicit TEST NODE tag and prevents repeated AI engagement', () => {
+  it('3. unavailable test camera state: displays explicit Test tag and prevents repeated AI engagement', () => {
     const startMock = vi.fn();
     render(
       <SelectedCameraPanel
@@ -301,7 +301,7 @@ describe('Phase 24A — CCTV Workstation Specifications & State Consistency', ()
       />
     );
 
-    expect(screen.getAllByText('TEST NODE').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Test').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('UNAVAILABLE')).toBeInTheDocument();
 
     // Engage AI button should be disabled for test camera
@@ -334,8 +334,8 @@ describe('Phase 24A — CCTV Workstation Specifications & State Consistency', ()
 
     await waitFor(() => {
       expect(screen.getByTestId('gis-map-container')).toBeInTheDocument();
-      expect(screen.getByText('GIS TACTICAL SURVEILLANCE MAP')).toBeInTheDocument();
-      expect(screen.getByText('2 REGISTERED NODES')).toBeInTheDocument();
+      expect(screen.getByText('Camera Map')).toBeInTheDocument();
+      expect(screen.getByText('2 cameras')).toBeInTheDocument();
     });
   });
 
@@ -381,8 +381,8 @@ describe('Phase 24A — CCTV Workstation Specifications & State Consistency', ()
 
     expect(screen.queryByText(/INTELLIGENCE & OPERATIONS TRAY/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/PROTOCOL 4\.2/i)).not.toBeInTheDocument();
-    expect(screen.getByText('ACTIVE TARGET FOCUS MONITOR')).toBeInTheDocument();
-    expect(screen.getByText(/GRID MATRIX • CAMERA WALL/i)).toBeInTheDocument();
+    expect(screen.getByText('Live View')).toBeInTheDocument();
+    expect(screen.getByText('Camera Map')).toBeInTheDocument();
   });
 
   // 9. Investigation Controls
@@ -465,13 +465,13 @@ describe('Phase 24A — CCTV Workstation Specifications & State Consistency', ()
     render(<HealthDashboard />);
 
     await waitFor(() => {
-      expect(screen.getByText('SYSTEM')).toBeInTheDocument();
-      expect(screen.getByText('WORKER')).toBeInTheDocument();
-      expect(screen.getByText('Global Persistence Worker')).toBeInTheDocument();
-      expect(screen.getByText('Camera Pipelines & Stream Health')).toBeInTheDocument();
-      expect(screen.getByText('STREAM')).toBeInTheDocument();
-      expect(screen.getByText('AI PIPELINE')).toBeInTheDocument();
-      expect(screen.getByText('ANPR ENGINE')).toBeInTheDocument();
+      expect(screen.getByText('System')).toBeInTheDocument();
+      expect(screen.getByText('Worker')).toBeInTheDocument();
+      expect(screen.getByText('Saving detections')).toBeInTheDocument();
+      expect(screen.getByText('Camera Status')).toBeInTheDocument();
+      expect(screen.getByText('Stream')).toBeInTheDocument();
+      expect(screen.getByText('AI Status')).toBeInTheDocument();
+      expect(screen.getByText('Plates read')).toBeInTheDocument();
     });
   });
 

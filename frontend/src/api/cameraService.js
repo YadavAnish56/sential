@@ -36,6 +36,20 @@ export const cameraService = {
       body: JSON.stringify(payload),
     });
   },
+
+  /**
+   * Remove a camera. Refused with 409 when sightings reference it, unless
+   * `force` is set — in which case the camera is retired and its recorded
+   * sightings are kept.
+   * @param {number|string} id
+   * @param {{ force?: boolean }} [options]
+   */
+  async deleteCamera(id, { force = false } = {}) {
+    const suffix = force ? '?force=true' : '';
+    return fetchClient(`/cameras/${id}${suffix}`, {
+      method: 'DELETE',
+    });
+  },
   /**
    * Fetch safe preview URLs from authoritative catalog
    * @param {number} id

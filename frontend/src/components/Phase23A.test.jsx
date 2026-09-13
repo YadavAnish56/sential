@@ -238,7 +238,7 @@ describe('Phase 23A — C2 Command Center & Workspace Specifications', () => {
 
     // Video status vs AI pipeline status are clearly distinct
     expect(screen.getByText(/● VIDEO: LIVE FEED/i)).toBeInTheDocument();
-    expect(screen.getByText(/AI PIPELINE:/i)).toBeInTheDocument();
+    expect(screen.getByText('AI Status')).toBeInTheDocument();
     expect(screen.getAllByText(/RUNNING/i).length).toBeGreaterThanOrEqual(1);
   });
 
@@ -318,7 +318,7 @@ describe('Phase 23A — C2 Command Center & Workspace Specifications', () => {
 
     await waitFor(() => {
       expect(screen.getAllByText('KA02MM9091').length).toBeGreaterThanOrEqual(1);
-      expect(screen.getByText(/INCIDENT SIGHTINGS LOG/i)).toBeInTheDocument();
+      expect(screen.getAllByText(/Sightings/i).length).toBeGreaterThanOrEqual(1);
     });
   });
 
@@ -332,21 +332,21 @@ describe('Phase 23A — C2 Command Center & Workspace Specifications', () => {
       />
     );
 
-    expect(screen.getByText(/CAMERA SCOPE:/i)).toBeInTheDocument();
+    expect(screen.getByText('Cameras in scope')).toBeInTheDocument();
 
     const clearBtn = screen.getByRole('button', { name: /Clear/i });
     await act(async () => {
       fireEvent.click(clearBtn);
     });
 
-    expect(screen.getByText(/0 of 3 Nodes Selected/i)).toBeInTheDocument();
+    expect(screen.getByText(/0 of 3 cameras/i)).toBeInTheDocument();
 
     const allBtn = screen.getByRole('button', { name: /Select All/i });
     await act(async () => {
       fireEvent.click(allBtn);
     });
 
-    expect(screen.getByText(/3 of 3 Nodes Selected/i)).toBeInTheDocument();
+    expect(screen.getByText(/3 of 3 cameras/i)).toBeInTheDocument();
   });
 
   // 9. Engage AI on Selected Cameras
@@ -419,7 +419,7 @@ describe('Phase 23A — C2 Command Center & Workspace Specifications', () => {
     render(<WatchlistManager />);
 
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: /Surveillance Watchlist/i })).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: /Watchlist/i })).toBeInTheDocument();
     });
 
     expect(screen.getByRole('button', { name: /\+ ADD VEHICLE OF INTEREST/i })).toBeInTheDocument();
@@ -435,16 +435,16 @@ describe('Phase 23A — C2 Command Center & Workspace Specifications', () => {
       expect(screen.getByRole('heading', { name: /System Telemetry & Health/i })).toBeInTheDocument();
     });
 
-    expect(screen.getByText('Global Persistence Worker')).toBeInTheDocument();
+    expect(screen.getByText('Saving detections')).toBeInTheDocument();
     expect(screen.getByText('Alive / Running')).toBeInTheDocument();
-    expect(screen.getByText('Camera Pipelines & Stream Health')).toBeInTheDocument();
+    expect(screen.getByText('Cameras')).toBeInTheDocument();
   });
 
   // 14. Add Camera Modal Validation
   it('14. Add Camera modal validates required fields', async () => {
     const { container } = render(<AddCameraModal isOpen={true} onClose={vi.fn()} onCameraAdded={vi.fn()} />);
 
-    expect(screen.getByRole('heading', { name: /CAMERA MANAGEMENT • ONBOARD NODE/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /Add Camera/i })).toBeInTheDocument();
 
     const form = container.querySelector('form');
     await act(async () => {

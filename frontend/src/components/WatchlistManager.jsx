@@ -180,9 +180,9 @@ export default function WatchlistManager() {
       {/* Header */}
       <div className="watchlist-header">
         <div>
-          <h2>Surveillance Watchlist</h2>
+          <h2>Watchlist</h2>
           <span className="watchlist-subtitle">
-            FLAGGED TARGET VEHICLES FOR REAL-TIME ANPR ALERT MATCHING
+            Vehicles flagged for automatic alerting
           </span>
         </div>
         <button
@@ -341,10 +341,6 @@ export default function WatchlistManager() {
           </table>
         </div>
       )}
-
-      <div className="watchlist-footer-notice" style={{ marginTop: '0.8rem', fontSize: '0.78rem', color: '#64748b' }}>
-        Automated Alert Integration: Active watchlist targets are evaluated in real-time by the ANPR coordinator.
-      </div>
 
       {/* Add/Edit Modal */}
       {isModalOpen && (

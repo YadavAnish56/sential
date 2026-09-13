@@ -1,19 +1,44 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { cameraService } from '../api/cameraService';
 import { healthService } from '../api/healthService';
+
+const RUNNING_STATES = new Set(['running', 'starting']);
+
+function isRunning(pipeline) {
+  if (!pipeline) return false;
+  if (typeof pipeline.is_running === 'boolean') return pipeline.is_running;
+  return RUNNING_STATES.has(String(pipeline.status || '').toLowerCase());
+}
+
+// Telemetry belongs to a live pipeline. A stopped one reports a dash rather
+// than its last reading, so an operator never mistakes stale counters for now.
+function liveValue(pipeline, value, fallback = '—') {
+  return isRunning(pipeline) ? value : fallback;
+}
+
+function formatClock(date) {
+  if (!date) return null;
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
 
 export default function HealthDashboard({ lightTheme = false }) {
   const [pipelineHealth, setPipelineHealth] = useState({});
   const [systemHealth, setSystemHealth] = useState(null);
   const [registeredCameras, setRegisteredCameras] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState(null);
   const [error, setError] = useState(null);
 
   const pollInProgress = useRef(false);
+  const mounted = useRef(true);
 
-  const fetchHealth = async () => {
-    if (pollInProgress.current) return;
+  // `force` is set by the Refresh button: a manual refresh must never be
+  // dropped just because the background poll happens to be in flight.
+  const fetchHealth = useCallback(async ({ force = false } = {}) => {
+    if (pollInProgress.current && !force) return;
     pollInProgress.current = true;
+    if (force) setRefreshing(true);
     try {
       const camPromise = typeof cameraService.getCameras === 'function'
         ? cameraService.getCameras().catch(() => [])
@@ -24,34 +49,56 @@ export default function HealthDashboard({ lightTheme = false }) {
         healthService.getSystemHealth(),
         camPromise,
       ]);
+      if (!mounted.current) return;
       setPipelineHealth(pipeData || {});
       setSystemHealth(sysData || null);
       const rawCams = Array.isArray(camData) ? camData : (camData?.cameras || []);
       setRegisteredCameras(rawCams);
+      setLastUpdated(new Date());
       setError(null);
     } catch (err) {
-      setError(err.message || 'Failed to load telemetry data.');
+      if (mounted.current) setError(err.message || 'Could not reach the server.');
     } finally {
-      setLoading(false);
+      if (mounted.current) {
+        setLoading(false);
+        setRefreshing(false);
+      }
       pollInProgress.current = false;
     }
-  };
+  }, []);
 
   useEffect(() => {
+    mounted.current = true;
     fetchHealth();
     const interval = setInterval(fetchHealth, 5000);
-    return () => clearInterval(interval);
-  }, []);
+    return () => {
+      mounted.current = false;
+      clearInterval(interval);
+    };
+  }, [fetchHealth]);
 
   if (loading && Object.keys(pipelineHealth).length === 0) {
     return <div className="loading" aria-busy="true">Loading telemetry...</div>;
   }
 
   const pipelines = Object.values(pipelineHealth);
-  const cameras = pipelines;
-  const totalRegistered = registeredCameras.length > 0
-    ? registeredCameras.length
-    : pipelines.length;
+  const runningCount = pipelines.filter(isRunning).length;
+
+  // Every registered camera gets a row, whether or not a pipeline was ever
+  // started for it, so a newly added camera shows up here immediately.
+  const byCode = new Map();
+  registeredCameras.forEach((cam) => {
+    const code = cam.camera_code || cam.camera_id || String(cam.id);
+    byCode.set(code, { code, camera: cam, pipeline: null });
+  });
+  pipelines.forEach((p, idx) => {
+    const code = p.camera_id || p.camera_code || `CAM-${idx}`;
+    const existing = byCode.get(code);
+    if (existing) existing.pipeline = p;
+    else byCode.set(code, { code, camera: null, pipeline: p });
+  });
+  const rows = Array.from(byCode.values());
+  const totalRegistered = registeredCameras.length > 0 ? registeredCameras.length : pipelines.length;
 
   return (
     <div
@@ -61,17 +108,24 @@ export default function HealthDashboard({ lightTheme = false }) {
     >
       <div className="health-title-deck">
         <div>
-          <h2>System Telemetry & Health</h2>
-          <span className="health-sub">SENTINEL AI & BACKEND PERSISTENCE RUNTIME METRICS</span>
+          <h2>System Telemetry &amp; Health</h2>
+          <span className="health-sub">Live status of cameras and detection engines</span>
         </div>
-        <button
-          type="button"
-          className="btn btn-secondary btn-sm"
-          onClick={fetchHealth}
-          disabled={loading}
-        >
-          {loading ? 'Refreshing...' : 'Refresh Health'}
-        </button>
+        <div className="health-refresh-group" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          {lastUpdated && (
+            <span className="health-updated" style={{ fontSize: '0.78rem', opacity: 0.7 }}>
+              Updated {formatClock(lastUpdated)}
+            </span>
+          )}
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={() => fetchHealth({ force: true })}
+            disabled={refreshing}
+          >
+            {refreshing ? 'Refreshing...' : 'Refresh'}
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -80,70 +134,67 @@ export default function HealthDashboard({ lightTheme = false }) {
         </div>
       )}
 
-      {/* TOP ROW: SYSTEM & WORKER STATUS */}
       <div className="health-overview-grid">
-        {/* SYSTEM STATUS */}
         <div className="health-card" style={lightTheme ? {} : { background: '#0f172a', color: '#f0f6fc' }}>
           <div className="health-card-header">
-            <span className="card-tag">SYSTEM</span>
-            <span className="card-title">BACKEND HOST & ENVIRONMENT</span>
+            <span className="card-tag">System</span>
+            <span className="card-title">Server</span>
           </div>
           <div className="health-card-body">
             <div className="health-stat-line">
-              <span className="stat-name">API STATUS:</span>
+              <span className="stat-name">Status</span>
               {error ? (
-                <span className="stat-val text-offline">UNAVAILABLE (API ERROR)</span>
+                <span className="stat-val text-offline">Unavailable</span>
               ) : (
-                <span className="stat-val text-online">OPERATIONAL (HEALTHY)</span>
+                <span className="stat-val text-online">Online</span>
               )}
             </div>
             <div className="health-stat-line">
-              <span className="stat-name">REGISTERED NODES:</span>
+              <span className="stat-name">Cameras</span>
               {error && totalRegistered === 0 ? (
-                <span className="stat-val text-muted">DATA UNAVAILABLE</span>
+                <span className="stat-val text-muted">{'—'}</span>
               ) : (
-                <span className="stat-val">{totalRegistered} CAMERAS</span>
+                <span className="stat-val">{totalRegistered}</span>
               )}
             </div>
             <div className="health-stat-line">
-              <span className="stat-name">ACTIVE PIPELINES:</span>
+              <span className="stat-name">AI running</span>
               {error && pipelines.length === 0 ? (
-                <span className="stat-val text-muted">DATA UNAVAILABLE</span>
+                <span className="stat-val text-muted">{'—'}</span>
               ) : (
-                <span className="stat-val">{pipelines.length} RUNNING</span>
+                <span className="stat-val">{runningCount} of {totalRegistered}</span>
               )}
             </div>
             <div className="health-stat-line">
-              <span className="stat-name">TELEMETRY POLLING:</span>
-              <span className="stat-val">5000 MS ACTIVE INTERVAL</span>
+              <span className="stat-name">Refreshes every</span>
+              <span className="stat-val">5 seconds</span>
             </div>
           </div>
         </div>
 
-        {/* WORKER / PERSISTENCE STATUS */}
         <div className="health-card system-health-section" style={lightTheme ? {} : { background: '#0f172a', color: '#f0f6fc' }}>
           <div className="health-card-header">
-            <span className="card-tag">WORKER</span>
-            <span className="card-title">Global Persistence Worker</span>
+            <span className="card-tag">Worker</span>
+            <span className="card-title">Saving detections</span>
           </div>
           <div className="health-card-body">
             {systemHealth && systemHealth.anpr_persistence_worker ? (
               <>
                 <div className="health-stat-line">
-                  <span className="stat-name">WORKER THREAD:</span>
+                  <span className="stat-name">Status</span>
                   <span className={`stat-val ${systemHealth.anpr_persistence_worker.is_alive ? 'text-online' : 'text-offline'}`}>
                     {systemHealth.anpr_persistence_worker.is_alive ? 'Alive / Running' : 'Stopped / Dead'}
                   </span>
                 </div>
                 <div className="health-stat-line">
-                  <span className="stat-name">BACKLOG QUEUE:</span>
+                  <span className="stat-name">Waiting to save</span>
                   <span className={`stat-val queue-badge ${systemHealth.anpr_persistence_worker.queue_size > 100 ? 'text-warning' : 'text-online'}`}>
                     {systemHealth.anpr_persistence_worker.queue_size} items
                   </span>
                 </div>
                 <div className="health-stat-line">
-                  <span className="stat-name">STORAGE BACKEND:</span>
-                  <span className="stat-val">POSTGRESQL AUDIT STORE</span>
+                  <span className="stat-name">Database</span>
+                  <span className="stat-val">Connected</span>
                 </div>
               </>
             ) : (
@@ -153,49 +204,47 @@ export default function HealthDashboard({ lightTheme = false }) {
         </div>
       </div>
 
-      {/* CAMERAS & AI PIPELINES TELEMETRY */}
       <div className="pipelines-health-section">
         <div className="section-header-c2">
-          <span className="c2-label">Camera Pipelines & Stream Health</span>
-          <span className="meta-tag">{cameras.length} MONITORED NODES</span>
+          <span className="c2-label">Camera Status</span>
+          <span className="meta-tag">{rows.length} total</span>
         </div>
 
-        {cameras.length === 0 ? (
-          <p className="empty-state">No camera pipelines registered in system.</p>
+        {rows.length === 0 ? (
+          <p className="empty-state">No cameras registered yet.</p>
         ) : (
           <div className="health-table-wrapper">
             <table className="health-telemetry-table">
               <thead>
                 <tr>
-                  <th>CAMERA</th>
-                  <th>STREAM</th>
-                  <th>AI PIPELINE</th>
-                  <th>ANPR ENGINE</th>
-                  <th>FPS / PTS</th>
-                  <th>DETECTIONS / TRACKS</th>
-                  <th>ERRORS</th>
+                  <th>Camera</th>
+                  <th>Stream</th>
+                  <th>AI Status</th>
+                  <th>Plates read</th>
+                  <th>Stream time</th>
+                  <th>Vehicles seen</th>
+                  <th>Errors</th>
                 </tr>
               </thead>
               <tbody>
-                {cameras.map((cam, idx) => {
-                  const stream = cam.stream_health || {};
-                  const stats = cam.pipeline_stats || {};
-                  const isOnline = stream.status === 'online';
-                  const streamStatusText = (stream.status || 'UNKNOWN').toUpperCase();
-                  const lastPts = stream.last_pts_ms ? stream.last_pts_ms.toFixed(0) : 'N/A';
-                  const camCode = cam.camera_id || cam.camera_code || `CAM-${cam.id || idx}`;
-                  const isRunning = (cam.status || '').toUpperCase() === 'RUNNING';
+                {rows.map(({ code, camera, pipeline }) => {
+                  const stream = (pipeline && pipeline.stream_health) || {};
+                  const stats = (pipeline && pipeline.pipeline_stats) || {};
+                  const running = isRunning(pipeline);
+                  const online = stream.status === 'online';
+                  const streamStatusText = (stream.status || (camera ? 'offline' : 'unknown')).toUpperCase();
+                  const lastPts = running && stream.last_pts_ms ? stream.last_pts_ms.toFixed(0) : '—';
+                  const aiState = pipeline ? String(pipeline.status || 'stopped').toLowerCase() : 'not started';
 
                   return (
-                    <tr key={camCode}>
-                      {/* CAMERA */}
+                    <tr key={code}>
                       <td className="cell-cam">
-                        <strong>{camCode}</strong>
+                        <strong>{code}</strong>
+                        {camera?.name && <div className="sub-meta">{camera.name}</div>}
                       </td>
 
-                      {/* STREAM */}
                       <td className="cell-stream">
-                        <span className={`status-pill ${isOnline ? 'pill-live' : 'pill-offline'}`}>
+                        <span className={`status-pill ${online ? 'pill-live' : 'pill-offline'}`}>
                           <span className="dot"></span>
                           {streamStatusText}
                         </span>
@@ -204,35 +253,34 @@ export default function HealthDashboard({ lightTheme = false }) {
                         </div>
                       </td>
 
-                      {/* AI PIPELINE */}
                       <td className="cell-ai">
-                        <span className={`status-badge status-${(cam.status || '').toLowerCase()}`}>
-                          {(cam.status || 'stopped').toLowerCase()}
+                        <span className={`status-badge status-${aiState.replace(/\s+/g, '-')}`}>
+                          {aiState}
                         </span>
                         <div className="sub-meta">
-                          R: {stats.frames_total || 0} / S: {stats.frames_skipped || 0} / D: {stats.frames_detected || 0} / T: {stats.frames_tracked || 0}
+                          {running
+                            ? `R: ${stats.frames_total || 0} / S: ${stats.frames_skipped || 0} / D: ${stats.frames_detected || 0} / T: ${stats.frames_tracked || 0}`
+                            : '—'}
                         </div>
                       </td>
 
-                      {/* ANPR ENGINE */}
                       <td className="cell-anpr">
-                        <strong>{stats.frames_anpr || 0} reads</strong>
+                        <strong>{liveValue(pipeline, `${stats.frames_anpr || 0} reads`)}</strong>
                       </td>
 
-                      {/* FPS / PTS */}
                       <td className="cell-pts font-mono">
                         {lastPts}
                       </td>
 
-                      {/* DETECTIONS / TRACKS */}
                       <td className="cell-det">
-                        Det: <strong>{stats.frames_detected || 0}</strong> | Track: <strong>{stats.frames_tracked || 0}</strong>
+                        {running
+                          ? <>Det: <strong>{stats.frames_detected || 0}</strong> | Track: <strong>{stats.frames_tracked || 0}</strong></>
+                          : '—'}
                       </td>
 
-                      {/* ERRORS */}
                       <td className="cell-errors">
                         <span className={(stats.total_errors || 0) > 0 ? 'text-offline font-bold' : 'text-online'}>
-                          {stats.total_errors || 0}
+                          {liveValue(pipeline, stats.total_errors || 0)}
                         </span>
                       </td>
                     </tr>

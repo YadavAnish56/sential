@@ -115,8 +115,8 @@ export default function AddCameraModal({ isOpen, onClose, onCameraCreated }) {
       <div className="command-modal-window add-camera-window">
         <div className="command-modal-header">
           <div>
-            <h3>CAMERA MANAGEMENT • ONBOARD NODE</h3>
-            <span className="modal-header-sub">REGISTER CCTV SENSOR NODE TO GUJARAT POLICE SURVEILLANCE GRID</span>
+            <h3>Add Camera</h3>
+            <span className="modal-header-sub">Register a new camera</span>
           </div>
           <button
             type="button"
@@ -233,7 +233,7 @@ export default function AddCameraModal({ isOpen, onClose, onCameraCreated }) {
             </div>
 
             <div className="form-field">
-              <label htmlFor="stream_id_or_url">STREAM IDENTIFIER OR SANITIZED RTSP URL</label>
+              <label htmlFor="stream_id_or_url">Stream URL</label>
               <input
                 id="stream_id_or_url"
                 name="stream_id_or_url"

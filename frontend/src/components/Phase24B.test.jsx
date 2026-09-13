@@ -269,15 +269,15 @@ describe('Phase 24B — Tripartite C2 Operational Workflows & Specifications', (
       />
     );
 
-    expect(screen.getByText(/3 of 3 Nodes Selected/i)).toBeInTheDocument();
+    expect(screen.getByText(/3 of 3 cameras/i)).toBeInTheDocument();
 
     const clearBtn = screen.getByRole('button', { name: /Clear/i });
     fireEvent.click(clearBtn);
-    expect(screen.getByText(/0 of 3 Nodes Selected/i)).toBeInTheDocument();
+    expect(screen.getByText(/0 of 3 cameras/i)).toBeInTheDocument();
 
     const selectAllBtn = screen.getByRole('button', { name: /Select All/i });
     fireEvent.click(selectAllBtn);
-    expect(screen.getByText(/3 of 3 Nodes Selected/i)).toBeInTheDocument();
+    expect(screen.getByText(/3 of 3 cameras/i)).toBeInTheDocument();
   });
 
   // 4. Engage AI on Selected Cameras Only

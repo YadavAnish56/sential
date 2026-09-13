@@ -19,11 +19,21 @@ export async function fetchClient(endpoint, options = {}) {
 
     if (!response.ok) {
       let errorMessage = `HTTP error ${response.status}${response.statusText ? ` (${response.statusText})` : ''}`;
-      
+      let errorDetail = null;
+
       if (contentType.includes('application/json')) {
         try {
           const data = await response.json();
-          errorMessage = data?.detail || data?.message || errorMessage;
+          const detail = data?.detail ?? data?.message;
+          // A detail may be a plain string or a structured object (e.g. the
+          // camera-delete refusal, which carries its counts). Keep the object
+          // on the error so callers can act on it, and show its message.
+          if (detail && typeof detail === 'object') {
+            errorDetail = detail;
+            errorMessage = detail.message || detail.detail || errorMessage;
+          } else if (typeof detail === 'string' && detail) {
+            errorMessage = detail;
+          }
         } catch (_) {
           // Fallback to generic status message if error JSON body parsing fails
         }
@@ -37,6 +47,7 @@ export async function fetchClient(endpoint, options = {}) {
 
       const error = new Error(errorMessage);
       error.status = response.status;
+      error.detail = errorDetail;
       throw error;
     }
 

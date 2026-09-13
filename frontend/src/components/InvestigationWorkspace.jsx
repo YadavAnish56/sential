@@ -312,9 +312,9 @@ export default function InvestigationWorkspace({
         <div className="camera-scope-deck">
           <div className="scope-header">
             <div className="scope-title">
-              <strong>CAMERA SCOPE:</strong>
+              <strong>Cameras in scope</strong>
               <span className="scope-counter">
-                {selectedCameraIds.size} of {cameras.length} Nodes Selected
+                {selectedCameraIds.size} of {cameras.length} cameras
               </span>
             </div>
             <div className="scope-actions">
@@ -453,7 +453,7 @@ export default function InvestigationWorkspace({
       <div className="investigation-results-deck">
         <div className="results-header">
           <div className="results-title">
-            <strong>INCIDENT SIGHTINGS LOG</strong>
+            <strong>Sightings</strong>
             {timeWindow !== 'all' && (
               <span className="filter-hint">
                 [Client-Side Time Filter: {timeWindow.toUpperCase()}]
@@ -461,7 +461,7 @@ export default function InvestigationWorkspace({
             )}
           </div>
           <span className="results-sub">
-            PERSISTED DETECTION AUDIT EVENTS (NO HISTORICAL VIDEO PLAYBACK)
+            Recorded sightings
           </span>
         </div>
 

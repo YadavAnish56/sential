@@ -209,6 +209,17 @@ class CameraPipelineSession:
 
             self._status = PipelineSessionStatus.STOPPED
             self._thread = None
+
+            # Clear telemetry so a stopped pipeline reports nothing rather than
+            # its final reading; leaving the counters up made the dashboards
+            # look live long after the AI had been stopped.
+            self._frames_processed = 0
+            self._last_processed_pts_ms = None
+            try:
+                self.pipeline.reset_stats()
+            except Exception as exc:  # never let telemetry cleanup fail a stop
+                logger.warning("Could not reset stats for camera %s: %s", self.camera_id, exc)
+
             logger.info("Pipeline session stopped for camera %s", self.camera_id)
             return True
 

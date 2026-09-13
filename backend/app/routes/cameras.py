@@ -21,6 +21,9 @@ except ImportError:
 
 from app.database.dependencies import get_db
 from app.models.camera import Camera
+from app.models.camera_status import CameraStatusHistory
+from app.models.event import Event
+from app.models.alert import Alert
 from streaming.camera_catalog import CameraCatalog
 from app.schemas.camera import (
     CameraCreate,
@@ -365,6 +368,81 @@ def update_camera(
     db.commit()
     db.refresh(camera)
     return CameraResponse.model_validate(camera)
+
+
+@router.delete("/{camera_id}", tags=["Cameras"])
+def delete_camera(
+    camera_id: str,
+    force: bool = Query(
+        False,
+        description="Delete the camera even though sightings reference it. "
+                    "The sightings themselves are always kept.",
+    ),
+    db: Session = Depends(get_db),
+    request: Request = None,
+):
+    """
+    Remove a camera from the registry.
+
+    Any running pipeline is stopped first. Recorded sightings and alerts are
+    evidence, so they are never deleted along with the camera: if any exist the
+    request is refused with their counts, and `force=true` is required to
+    proceed. Forcing retires the camera instead of erasing it, which keeps the
+    rows those sightings point at intact.
+    """
+    camera = _resolve_camera(camera_id, db)
+
+    # Stop the pipeline first so no worker keeps writing against this camera.
+    try:
+        manager = _get_manager(request) if request is not None else None
+        if manager is not None:
+            manager.stop_camera(camera.camera_code)
+    except Exception as exc:
+        logger.warning("Could not stop pipeline for %s during delete: %s", camera.camera_code, exc)
+
+    event_count = db.query(Event).filter(Event.camera_id == camera.id).count()
+    alert_count = db.query(Alert).filter(Alert.camera_id == camera.id).count()
+    referenced = event_count + alert_count
+
+    if referenced and not force:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "message": (
+                    f"Camera '{camera.camera_code}' has recorded evidence and was not removed."
+                ),
+                "events": event_count,
+                "alerts": alert_count,
+                "hint": "Retry with force=true to retire the camera. Its sightings are kept either way.",
+            },
+        )
+
+    code = camera.camera_code
+
+    if referenced:
+        # Retire rather than delete: the evidence rows still point at this row.
+        camera.status = "retired"
+        db.commit()
+        return {
+            "message": f"Camera {code} retired. Its {referenced} recorded item(s) were kept.",
+            "retired": True,
+            "deleted": False,
+            "events": event_count,
+            "alerts": alert_count,
+        }
+
+    db.query(CameraStatusHistory).filter(CameraStatusHistory.camera_id == camera.id).delete(
+        synchronize_session=False
+    )
+    db.delete(camera)
+    db.commit()
+    return {
+        "message": f"Camera {code} removed.",
+        "retired": False,
+        "deleted": True,
+        "events": 0,
+        "alerts": 0,
+    }
 
 
 @router.get("/{camera_id}/preview", tags=["Cameras"])

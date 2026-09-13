@@ -120,7 +120,7 @@ describe('Phase 17B Command Center UI & 30-Camera Integration', () => {
     });
 
     expect(screen.getByTestId('gis-map-container')).toBeInTheDocument();
-    expect(screen.getByText(/GRID MATRIX • CAMERA WALL/i)).toBeInTheDocument();
+    expect(screen.getByText('Camera Map')).toBeInTheDocument();
   });
 
   it('3. renders all 30 real camera records in the camera wall matrix', async () => {
@@ -194,7 +194,7 @@ describe('Phase 17B Command Center UI & 30-Camera Integration', () => {
       fireEvent.click(survBtn);
     });
 
-    expect(screen.getByText(/GRID MATRIX • CAMERA WALL/i)).toBeInTheDocument();
+    expect(screen.getByText('Camera Map')).toBeInTheDocument();
   });
 
   it('9. strictly avoids credential leakage in the DOM or attributes', async () => {
@@ -221,7 +221,7 @@ describe('Phase 17B Command Center UI & 30-Camera Integration', () => {
       fireEvent.click(watchlistBtn);
     });
 
-    expect(screen.getByRole('heading', { name: /Surveillance Watchlist/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /Watchlist/i })).toBeInTheDocument();
 
     const healthBtn = screen.getByRole('button', { name: /HEALTH/i });
     await act(async () => {
@@ -235,6 +235,6 @@ describe('Phase 17B Command Center UI & 30-Camera Integration', () => {
       fireEvent.click(survBtn);
     });
 
-    expect(screen.getByText(/GRID MATRIX • CAMERA WALL/i)).toBeInTheDocument();
+    expect(screen.getByText('Camera Map')).toBeInTheDocument();
   });
 });

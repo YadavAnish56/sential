@@ -308,7 +308,7 @@ const LivePreview = ({
     >
       {isTestMode ? (
         <div className="test-camera-placeholder" role="note">
-          <div className="placeholder-tag">[TEST NODE]</div>
+          <div className="placeholder-tag">Test</div>
           <div className="placeholder-title">TEST CAMERA • VIDEO OFFLINE</div>
           <p className="placeholder-desc">
             This node is configured as a test/development camera. No active RTSP/WHEP live feed exists on the government gateway.

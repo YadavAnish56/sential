@@ -13,11 +13,18 @@ export default function SelectedCameraPanel({
   pipelineStatus,
   onStartPipeline,
   onStopPipeline,
+  onCameraRemoved,
 }) {
   const [streamStateOverride, setStreamStateOverride] = useState(null);
   const [streamReasonOverride, setStreamReasonOverride] = useState(null);
   const [isActionPending, setIsActionPending] = useState(false);
   const [actionError, setActionError] = useState(null);
+
+  // Removal is a two-step confirmation. `removalWarning` holds the server's
+  // refusal when the camera still has sightings attached, so the operator is
+  // told exactly what exists before deciding to retire it.
+  const [removeState, setRemoveState] = useState('idle'); // idle | confirming | working
+  const [removalWarning, setRemovalWarning] = useState(null);
 
   // Display Enhancement State (Display-side only, non-evidentiary)
   const [zoomLevel, setZoomLevel] = useState(1);
@@ -110,6 +117,26 @@ export default function SelectedCameraPanel({
     }
   };
 
+  const handleRemove = async ({ force = false } = {}) => {
+    setRemoveState('working');
+    setActionError(null);
+    try {
+      const result = await cameraService.deleteCamera(camera.id, { force });
+      setRemoveState('idle');
+      setRemovalWarning(null);
+      if (onCameraRemoved) onCameraRemoved(camera, result);
+    } catch (err) {
+      if (err.status === 409 && err.detail) {
+        // The camera has evidence attached; surface the counts and ask again.
+        setRemovalWarning(err.detail);
+        setRemoveState('confirming');
+      } else {
+        setActionError(formatHumanReadableError(err.message || 'Could not remove this camera.'));
+        setRemoveState('idle');
+      }
+    }
+  };
+
   const handleStreamStatusChange = (status, reason) => {
     setStreamStateOverride(status);
     setStreamReasonOverride(reason);
@@ -146,7 +173,7 @@ export default function SelectedCameraPanel({
         <div className="camera-id-block">
           <span className="camera-code-tag">
             STAGE: {camera.camera_code}
-            {testCam && <span className="test-node-badge">TEST NODE</span>}
+            {testCam && <span className="test-node-badge">Test</span>}
           </span>
           <span className="camera-name-title">{camera.name || `Camera ${camera.id}`}</span>
         </div>
@@ -163,7 +190,7 @@ export default function SelectedCameraPanel({
 
           {/* AI PIPELINE STATE */}
           <div className="state-badge-container">
-            <span className="state-label">AI PIPELINE:</span>
+            <span className="state-label">AI Status</span>
             <span className={`status-pill ${aiState.colorClass}`}>
               <span className="dot"></span>
               {aiState.state}
@@ -435,14 +462,70 @@ export default function SelectedCameraPanel({
           >
             {isActionPending && isAiRunning ? 'Stopping...' : 'Stop AI'}
           </button>
+
+          <button
+            type="button"
+            className="btn btn-sm btn-secondary btn-remove-camera"
+            onClick={() => {
+              setRemovalWarning(null);
+              setRemoveState(removeState === 'idle' ? 'confirming' : 'idle');
+            }}
+            disabled={removeState === 'working'}
+            title="Remove this camera from the registry"
+          >
+            {removeState === 'working' ? 'Removing...' : 'Remove Camera'}
+          </button>
         </div>
+
+        {removeState === 'confirming' && (
+          <div className="remove-camera-confirm" role="alertdialog" aria-label="Confirm camera removal">
+            {removalWarning ? (
+              <p>
+                <strong>{camera.camera_code}</strong> has{' '}
+                {removalWarning.events > 0 && (
+                  <>{removalWarning.events} recorded sighting{removalWarning.events === 1 ? '' : 's'}</>
+                )}
+                {removalWarning.events > 0 && removalWarning.alerts > 0 && ' and '}
+                {removalWarning.alerts > 0 && (
+                  <>{removalWarning.alerts} alert{removalWarning.alerts === 1 ? '' : 's'}</>
+                )}
+                . Those records are kept as evidence. The camera will be retired
+                instead of deleted, and will stop appearing as active.
+              </p>
+            ) : (
+              <p>
+                Remove <strong>{camera.camera_code}</strong> from the registry?
+                Its AI pipeline will be stopped first.
+              </p>
+            )}
+            <div className="remove-camera-actions">
+              <button
+                type="button"
+                className="btn btn-sm btn-danger"
+                onClick={() => handleRemove({ force: Boolean(removalWarning) })}
+              >
+                {removalWarning ? 'Retire Camera' : 'Confirm Remove'}
+              </button>
+              <button
+                type="button"
+                className="btn btn-sm btn-secondary"
+                onClick={() => {
+                  setRemoveState('idle');
+                  setRemovalWarning(null);
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 6. OPERATIONAL DETECTION INTELLIGENCE STRIP */}
       <div className="live-intelligence-strip">
         <div className="intelligence-header">
-          <span className="intel-title">LATEST VEHICLE INTELLIGENCE</span>
-          <span className="intel-sub">POSTGRESQL AUDIT PIPELINE</span>
+          <span className="intel-title">Last Recognised Vehicle</span>
+          <span className="intel-sub"></span>
         </div>
         <div className="intelligence-grid">
           <div className="intel-field">

@@ -122,6 +122,14 @@ export default function App() {
     setMode('investigation');
   };
 
+  // After a removal the registry has changed: drop the selection if it pointed
+  // at that camera and reload, so the wall and map stop showing it.
+  const handleCameraRemoved = useCallback(async (removed) => {
+    setSelectedCameraId((current) => (current === removed?.id ? null : current));
+    await loadCameras();
+    await pollPipelineStatus();
+  }, [loadCameras, pollPipelineStatus]);
+
   const handleStartPipeline = async (id) => {
     await cameraService.startPipeline(id);
     await pollPipelineStatus();
@@ -238,8 +246,8 @@ export default function App() {
             {/* LEFT COLUMN: PERSISTENT GIS WORKSTATION (~35% width) */}
             <section className="left-map-column">
               <div className="section-header">
-                <span className="section-title">GIS TACTICAL SURVEILLANCE MAP</span>
-                <span className="meta-tag">{cameras.length} REGISTERED NODES</span>
+                <span className="section-title">Camera Map</span>
+                <span className="meta-tag">{cameras.length} cameras</span>
               </div>
               <div className="map-wrapper">
                 <GISMap
@@ -257,21 +265,22 @@ export default function App() {
                 {/* Selected Focus Monitor (Dominant Viewport ~68% height) */}
                 <div className="focus-monitor-section">
                   <div className="section-header">
-                    <span className="section-title">ACTIVE TARGET FOCUS MONITOR</span>
-                    <span className="meta-hint">SECURE WHEP EGRESS</span>
+                    <span className="section-title">Live View</span>
+                    <span className="meta-hint"></span>
                   </div>
                   <SelectedCameraPanel
                     camera={selectedCamera}
                     pipelineStatus={selectedPipelineStatus}
                     onStartPipeline={handleStartPipeline}
                     onStopPipeline={handleStopPipeline}
+                    onCameraRemoved={handleCameraRemoved}
                   />
                 </div>
 
                 {/* Camera Wall & Live Detections Switcher */}
                 <div className="camera-wall-section">
                   <div className="section-header section-header-with-switcher">
-                    <span className="section-title">GRID MATRIX • CAMERA WALL ({cameras.length} NODES)</span>
+                    <span className="section-title">All Cameras ({cameras.length})</span>
                     <div className="surveillance-intel-switcher" role="tablist">
                       <button
                         type="button"
@@ -280,7 +289,7 @@ export default function App() {
                         className={`intel-tab-btn ${surveillanceView === 'wall' ? 'active' : ''}`}
                         onClick={() => setSurveillanceView('wall')}
                       >
-                        CAMERA WALL
+                        Cameras
                       </button>
                       <button
                         type="button"
@@ -289,7 +298,7 @@ export default function App() {
                         className={`intel-tab-btn ${surveillanceView === 'detections' ? 'active' : ''}`}
                         onClick={() => setSurveillanceView('detections')}
                       >
-                        LIVE DETECTIONS
+                        Detections
                       </button>
                     </div>
                   </div>
@@ -338,9 +347,9 @@ export default function App() {
             {/* LEFT COLUMN: GIS MAP WITH RECONSTRUCTED ROUTE (~35% width) */}
             <section className="left-map-column">
               <div className="section-header">
-                <span className="section-title">INCIDENT GIS RECONSTRUCTION</span>
+                <span className="section-title">Vehicle Route</span>
                 <span className="meta-tag">
-                  {investigationRoute.length > 0 ? `${investigationRoute.length} CHECKPOINTS` : 'NO ROUTE'}
+                  {investigationRoute.length > 0 ? `${investigationRoute.length} ${investigationRoute.length === 1 ? 'stop' : 'stops'}` : 'No route'}
                 </span>
               </div>
               <div className="map-wrapper">
@@ -377,6 +386,7 @@ export default function App() {
                     pipelineStatus={selectedPipelineStatus}
                     onStartPipeline={handleStartPipeline}
                     onStopPipeline={handleStopPipeline}
+                    onCameraRemoved={handleCameraRemoved}
                   />
                 </div>
               )}

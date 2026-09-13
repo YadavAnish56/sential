@@ -238,7 +238,7 @@ export default function RecordsWorkspace({ onSelectPlate = null, onSelectCamera 
           </strong>
         </div>
         <div className="metric-chip">
-          <span className="metric-key">TOTAL DETECTION EVENTS:</span>
+          <span className="metric-key">Detections</span>
           <strong className="metric-val" data-testid="metric-total-events">
             {totalEventsCount || events.length}
           </strong>
@@ -250,7 +250,7 @@ export default function RecordsWorkspace({ onSelectPlate = null, onSelectCamera 
           </strong>
         </div>
         <div className="metric-chip">
-          <span className="metric-key">ACTIVE WATCHLIST TARGETS:</span>
+          <span className="metric-key">Watchlist</span>
           <strong className="metric-val" data-testid="metric-watchlist-targets">
             {activeWatchlistCount || watchlist.length}
           </strong>
@@ -260,10 +260,8 @@ export default function RecordsWorkspace({ onSelectPlate = null, onSelectCamera 
       {/* 2. HEADER & SUB-TABS */}
       <div className="records-header-deck">
         <div className="records-title-group">
-          <span className="c2-label">PERSISTENT SURVEILLANCE RECORDS & AUDIT ARCHIVE</span>
-          <span className="c2-sublabel">
-            POSTGRESQL AUDIT ARCHIVE (LIVE DETECTION LOGS ONLY — NO RAW VIDEO STORED)
-          </span>
+          <span className="c2-label">Records</span>
+          <span className="c2-sublabel">Vehicle sightings and alerts</span>
         </div>
 
         <div className="records-tab-bar" role="tablist">
@@ -369,7 +367,7 @@ export default function RecordsWorkspace({ onSelectPlate = null, onSelectCamera 
             </div>
 
             <div className="c2-field-group">
-              <label htmlFor="archive-camera-select">CAMERA NODE</label>
+              <label htmlFor="archive-camera-select">Camera</label>
               <select
                 id="archive-camera-select"
                 className="c2-select"
@@ -421,8 +419,8 @@ export default function RecordsWorkspace({ onSelectPlate = null, onSelectCamera 
           </div>
 
           <div className="archive-audit-notice">
-            AI DETECTION AUDIT ARCHIVE (METADATA EVENT LOG ONLY — NO RAW VIDEO STORED) •{' '}
-            <strong>{filteredAuditEvents.length} MATCHING EVENTS</strong>
+            <strong>{filteredAuditEvents.length}</strong>
+            {filteredAuditEvents.length === 1 ? ' record' : ' records'}
           </div>
         </div>
       )}

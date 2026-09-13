@@ -56,7 +56,7 @@ describe('WatchlistManager Component Tests', () => {
     // Await data load
     await waitFor(() => {
       expect(watchlistService.getWatchlist).toHaveBeenCalled();
-      expect(screen.getByText('Surveillance Watchlist')).toBeInTheDocument();
+      expect(screen.getByText('Watchlist')).toBeInTheDocument();
     });
 
     // Check entry 1
@@ -69,9 +69,6 @@ describe('WatchlistManager Component Tests', () => {
     expect(screen.getByText('MH12CD5678')).toBeInTheDocument();
     expect(screen.getByText('LOW')).toBeInTheDocument();
     expect(screen.getByText('INACTIVE')).toBeInTheDocument();
-
-    // Check automated alert notice
-    expect(screen.getByText(/Automated Alert Integration:/i)).toBeInTheDocument();
   });
 
   // 3: Search and filter controls work
