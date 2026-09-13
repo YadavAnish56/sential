@@ -137,3 +137,4 @@ class ANPRConfig:
     observation_buffer_size: int = 7
     consensus_min_observations: int = 3
     consensus_agreement_ratio: float = 0.60
+    min_candidate_confidence: float = 0.20

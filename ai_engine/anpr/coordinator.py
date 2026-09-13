@@ -117,6 +117,7 @@ def resolve_temporal_consensus(
     min_observations: int = 3,
     agreement_ratio: float = 0.60,
     fast_lock_confidence: float = 0.85,
+    min_candidate_confidence: float = 0.20,
 ) -> tuple[str | None, str | None]:
     """
     Evaluate buffered plate observations for a track and attempt to resolve consensus.
@@ -132,8 +133,11 @@ def resolve_temporal_consensus(
         if obs.is_valid_format and obs.ocr_confidence >= fast_lock_confidence:
             return obs.normalized_plate, "FAST_LOCK"
 
-    # Policy 2: Filter syntax-valid candidates for consensus voting
-    valid_obs = [obs for obs in observations if obs.is_valid_format]
+    # Policy 2: Filter syntax-valid candidates meeting admission floor for consensus voting
+    valid_obs = [
+        obs for obs in observations
+        if obs.is_valid_format and obs.ocr_confidence >= min_candidate_confidence
+    ]
     if len(valid_obs) < min_observations:
         return None, None
 
@@ -459,23 +463,25 @@ class ANPRCoordinator:
             )
             state.candidates.append(candidate_with_meta)
 
-            # Stage 5: Observation Buffer Management
-            obs = TrackPlateObservation(
-                pts_ms=pts_ms,
-                plate_bbox_crop=plate_bbox_crop or (0.0, 0.0, 0.0, 0.0),
-                plate_bbox_frame=plate_bbox_frame or (0.0, 0.0, 0.0, 0.0),
-                raw_text=candidate.raw_text,
-                normalized_plate=normalized_plate,
-                ocr_confidence=conf,
-                plate_detector_confidence=plate_detector_conf,
-                sharpness=plate_sharpness,
-                is_valid_format=is_valid,
-                aspect_ratio=aspect_ratio,
-            )
-            state.observations.append(obs)
-            max_buffer_sz = getattr(self.config, "observation_buffer_size", 7)
-            if len(state.observations) > max_buffer_sz:
-                state.observations.pop(0)
+            # Stage 5: Observation Buffer Management (Candidate Admission Floor: >= 0.20)
+            min_cand_conf = getattr(self.config, "min_candidate_confidence", 0.20)
+            if conf >= min_cand_conf:
+                obs = TrackPlateObservation(
+                    pts_ms=pts_ms,
+                    plate_bbox_crop=plate_bbox_crop or (0.0, 0.0, 0.0, 0.0),
+                    plate_bbox_frame=plate_bbox_frame or (0.0, 0.0, 0.0, 0.0),
+                    raw_text=candidate.raw_text,
+                    normalized_plate=normalized_plate,
+                    ocr_confidence=conf,
+                    plate_detector_confidence=plate_detector_conf,
+                    sharpness=plate_sharpness,
+                    is_valid_format=is_valid,
+                    aspect_ratio=aspect_ratio,
+                )
+                state.observations.append(obs)
+                max_buffer_sz = getattr(self.config, "observation_buffer_size", 7)
+                if len(state.observations) > max_buffer_sz:
+                    state.observations.pop(0)
 
             # Stage 6: Temporal Consensus & Lock Evaluation
             fast_lock_th = getattr(self.config, "fast_lock_confidence", self.config.early_lock_confidence)
@@ -487,6 +493,7 @@ class ANPRCoordinator:
                 min_observations=min_obs,
                 agreement_ratio=agr_ratio,
                 fast_lock_confidence=fast_lock_th,
+                min_candidate_confidence=min_cand_conf,
             )
 
             if resolved_plate is not None:
@@ -495,9 +502,6 @@ class ANPRCoordinator:
                 state.lock_method = lock_method
                 status = "RECOGNIZED"
                 final_plate_str = resolved_plate
-            elif is_valid and conf >= self.config.min_confidence:
-                status = "RECOGNIZED"
-                final_plate_str = normalized_plate
             elif not is_valid:
                 status = "INVALID_FORMAT"
                 final_plate_str = normalized_plate

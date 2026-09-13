@@ -1,0 +1,417 @@
+[
+  {
+    "camera_id": "CAM01",
+    "stream_id": "cam01",
+    "rtsp_connected": false,
+    "connect_time_sec": 19.41,
+    "resolution": "N/A",
+    "codec": "N/A",
+    "advisory_fps": 0.0,
+    "actual_fps": 0.0,
+    "pts_monotonic": true,
+    "frames_received": 0,
+    "vehicle_detections": 0,
+    "unique_tracks": 0,
+    "plate_detections": 0,
+    "typical_vehicle_size": "0x0",
+    "typical_plate_size": "0x0",
+    "plate_boxes": [],
+    "ocr_invocations": 0,
+    "raw_candidates": 0,
+    "raw_texts": [],
+    "valid_plates": 0,
+    "valid_plate_strings": [],
+    "readable": false,
+    "suitability": "UNSUITABLE",
+    "notes": "Failed to open RTSP stream"
+  },
+  {
+    "camera_id": "CAM03",
+    "stream_id": "cam03",
+    "rtsp_connected": true,
+    "connect_time_sec": 2.8,
+    "resolution": "1280x720",
+    "codec": "h264",
+    "advisory_fps": 30.0,
+    "actual_fps": 29.3,
+    "pts_monotonic": true,
+    "frames_received": 100,
+    "vehicle_detections": 4,
+    "unique_tracks": 1,
+    "plate_detections": 0,
+    "typical_vehicle_size": "41x45px",
+    "typical_plate_size": "N/A",
+    "plate_boxes": [],
+    "ocr_invocations": 0,
+    "raw_candidates": 0,
+    "raw_texts": [],
+    "valid_plates": 0,
+    "valid_plate_strings": [],
+    "readable": false,
+    "suitability": "UNSUITABLE",
+    "notes": "Vehicles detected (41x45px) but no plate regions localized (camera distance/angle)"
+  },
+  {
+    "camera_id": "CAM06",
+    "stream_id": "cam06",
+    "rtsp_connected": true,
+    "connect_time_sec": 2.44,
+    "resolution": "1920x1080",
+    "codec": "hevc",
+    "advisory_fps": 25.0,
+    "actual_fps": 9.3,
+    "pts_monotonic": true,
+    "frames_received": 100,
+    "vehicle_detections": 223,
+    "unique_tracks": 16,
+    "plate_detections": 20,
+    "typical_vehicle_size": "267x164px",
+    "typical_plate_size": "81x21px",
+    "plate_boxes": [
+      {
+        "track_id": 3,
+        "bbox": [
+          72.3,
+          3.9,
+          141.3,
+          20.3
+        ],
+        "w": 69.0,
+        "h": 16.4
+      },
+      {
+        "track_id": 3,
+        "bbox": [
+          68.0,
+          10.5,
+          138.2,
+          27.3
+        ],
+        "w": 70.2,
+        "h": 16.8
+      },
+      {
+        "track_id": 3,
+        "bbox": [
+          72.7,
+          59.2,
+          144.6,
+          77.8
+        ],
+        "w": 71.9,
+        "h": 18.6
+      },
+      {
+        "track_id": 3,
+        "bbox": [
+          84.7,
+          111.4,
+          162.8,
+          132.9
+        ],
+        "w": 78.1,
+        "h": 21.5
+      },
+      {
+        "track_id": 3,
+        "bbox": [
+          83.3,
+          147.7,
+          162.6,
+          166.8
+        ],
+        "w": 79.2,
+        "h": 19.1
+      },
+      {
+        "track_id": 7,
+        "bbox": [
+          88.1,
+          183.4,
+          171.9,
+          205.2
+        ],
+        "w": 83.8,
+        "h": 21.8
+      },
+      {
+        "track_id": 3,
+        "bbox": [
+          94.2,
+          256.5,
+          183.4,
+          281.3
+        ],
+        "w": 89.3,
+        "h": 24.8
+      },
+      {
+        "track_id": 7,
+        "bbox": [
+          98.0,
+          261.0,
+          188.4,
+          285.1
+        ],
+        "w": 90.4,
+        "h": 24.1
+      },
+      {
+        "track_id": 7,
+        "bbox": [
+          108.2,
+          297.0,
+          209.5,
+          323.4
+        ],
+        "w": 101.3,
+        "h": 26.4
+      },
+      {
+        "track_id": 3,
+        "bbox": [
+          113.3,
+          303.1,
+          214.5,
+          331.2
+        ],
+        "w": 101.2,
+        "h": 28.1
+      },
+      {
+        "track_id": 7,
+        "bbox": [
+          123.2,
+          336.9,
+          234.2,
+          365.4
+        ],
+        "w": 110.9,
+        "h": 28.5
+      },
+      {
+        "track_id": 3,
+        "bbox": [
+          118.5,
+          345.9,
+          233.2,
+          375.9
+        ],
+        "w": 114.7,
+        "h": 30.0
+      },
+      {
+        "track_id": 3,
+        "bbox": [
+          137.4,
+          391.7,
+          259.9,
+          426.1
+        ],
+        "w": 122.5,
+        "h": 34.5
+      },
+      {
+        "track_id": 7,
+        "bbox": [
+          136.4,
+          399.8,
+          261.2,
+          432.2
+        ],
+        "w": 124.8,
+        "h": 32.4
+      },
+      {
+        "track_id": 7,
+        "bbox": [
+          148.4,
+          437.0,
+          282.8,
+          473.8
+        ],
+        "w": 134.4,
+        "h": 36.8
+      },
+      {
+        "track_id": 11,
+        "bbox": [
+          74.5,
+          2.2,
+          141.8,
+          18.6
+        ],
+        "w": 67.2,
+        "h": 16.4
+      },
+      {
+        "track_id": 11,
+        "bbox": [
+          81.1,
+          39.8,
+          154.2,
+          58.5
+        ],
+        "w": 73.1,
+        "h": 18.7
+      },
+      {
+        "track_id": 10,
+        "bbox": [
+          53.8,
+          95.3,
+          87.2,
+          114.8
+        ],
+        "w": 33.4,
+        "h": 19.6
+      },
+      {
+        "track_id": 11,
+        "bbox": [
+          86.9,
+          101.5,
+          163.2,
+          121.6
+        ],
+        "w": 76.4,
+        "h": 20.1
+      },
+      {
+        "track_id": 10,
+        "bbox": [
+          49.6,
+          102.3,
+          86.3,
+          122.8
+        ],
+        "w": 36.7,
+        "h": 20.6
+      }
+    ],
+    "ocr_invocations": 20,
+    "raw_candidates": 11,
+    "raw_texts": [
+      "J6i9",
+      "6J12L4219",
+      "7412 [ 9819",
+      "\"64Jz [ 9849",
+      "6JIZ ( 9819",
+      "'6J7Z [ 9819",
+      "Fgj224 9819",
+      "6j32 K 9819",
+      "6J3Z K 9819",
+      "6J3Z K 9819",
+      "6JJZ K 9819"
+    ],
+    "valid_plates": 0,
+    "valid_plate_strings": [],
+    "readable": false,
+    "suitability": "MARGINAL",
+    "notes": "Plates detected (20), pixel height near threshold (81x21px)"
+  },
+  {
+    "camera_id": "CAM02",
+    "stream_id": "cam02",
+    "rtsp_connected": true,
+    "connect_time_sec": 1.93,
+    "resolution": "1920x1080",
+    "codec": "h264",
+    "advisory_fps": 30.0,
+    "actual_fps": 32.9,
+    "pts_monotonic": true,
+    "frames_received": 100,
+    "vehicle_detections": 154,
+    "unique_tracks": 13,
+    "plate_detections": 0,
+    "typical_vehicle_size": "57x99px",
+    "typical_plate_size": "N/A",
+    "plate_boxes": [],
+    "ocr_invocations": 0,
+    "raw_candidates": 0,
+    "raw_texts": [],
+    "valid_plates": 0,
+    "valid_plate_strings": [],
+    "readable": false,
+    "suitability": "UNSUITABLE",
+    "notes": "Vehicles detected (57x99px) but no plate regions localized (camera distance/angle)"
+  },
+  {
+    "camera_id": "CAM04",
+    "stream_id": "cam04",
+    "rtsp_connected": false,
+    "connect_time_sec": 19.25,
+    "resolution": "N/A",
+    "codec": "N/A",
+    "advisory_fps": 0.0,
+    "actual_fps": 0.0,
+    "pts_monotonic": true,
+    "frames_received": 0,
+    "vehicle_detections": 0,
+    "unique_tracks": 0,
+    "plate_detections": 0,
+    "typical_vehicle_size": "0x0",
+    "typical_plate_size": "0x0",
+    "plate_boxes": [],
+    "ocr_invocations": 0,
+    "raw_candidates": 0,
+    "raw_texts": [],
+    "valid_plates": 0,
+    "valid_plate_strings": [],
+    "readable": false,
+    "suitability": "UNSUITABLE",
+    "notes": "Failed to open RTSP stream"
+  },
+  {
+    "camera_id": "CAM05",
+    "stream_id": "cam05",
+    "rtsp_connected": true,
+    "connect_time_sec": 1.76,
+    "resolution": "1920x1080",
+    "codec": "h264",
+    "advisory_fps": 30.0,
+    "actual_fps": 23.6,
+    "pts_monotonic": true,
+    "frames_received": 100,
+    "vehicle_detections": 333,
+    "unique_tracks": 37,
+    "plate_detections": 0,
+    "typical_vehicle_size": "113x94px",
+    "typical_plate_size": "N/A",
+    "plate_boxes": [],
+    "ocr_invocations": 0,
+    "raw_candidates": 0,
+    "raw_texts": [],
+    "valid_plates": 0,
+    "valid_plate_strings": [],
+    "readable": false,
+    "suitability": "UNSUITABLE",
+    "notes": "Vehicles detected (113x94px) but no plate regions localized (camera distance/angle)"
+  },
+  {
+    "camera_id": "CAM07",
+    "stream_id": "cam07",
+    "rtsp_connected": true,
+    "connect_time_sec": 5.53,
+    "resolution": "1920x1080",
+    "codec": "h264",
+    "advisory_fps": 25.0,
+    "actual_fps": 0.8,
+    "pts_monotonic": true,
+    "frames_received": 13,
+    "vehicle_detections": 0,
+    "unique_tracks": 0,
+    "plate_detections": 0,
+    "typical_vehicle_size": "0x0",
+    "typical_plate_size": "N/A",
+    "plate_boxes": [],
+    "ocr_invocations": 0,
+    "raw_candidates": 0,
+    "raw_texts": [],
+    "valid_plates": 0,
+    "valid_plate_strings": [],
+    "readable": false,
+    "suitability": "UNSUITABLE",
+    "notes": "Zero vehicle traffic observed in sample"
+  }
+]

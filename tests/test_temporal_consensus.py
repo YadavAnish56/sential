@@ -186,3 +186,52 @@ class TestTemporalConsensus:
         )
         assert resolved == "KA02MM9091"
         assert lock_type == "CONSENSUS_LOCK"
+
+    def test_candidate_floor_020_admission_and_exclusion(self):
+        # Observation with conf 0.19 excluded from consensus voting
+        obs_sub_floor = [
+            make_obs("GJ05AB1234", ocr_confidence=0.20, is_valid_format=True),
+            make_obs("GJ05AB1234", ocr_confidence=0.22, is_valid_format=True),
+            make_obs("GJ05AB1234", ocr_confidence=0.19, is_valid_format=True),  # Sub-floor!
+        ]
+        # Only 2 valid observations meeting floor (need 3)
+        resolved, lock_type = resolve_temporal_consensus(
+            obs_sub_floor, min_observations=3, agreement_ratio=0.60, min_candidate_confidence=0.20
+        )
+        assert resolved is None
+        assert lock_type is None
+
+        # When third observation is 0.20 (meeting floor), consensus achieved
+        obs_at_floor = [
+            make_obs("GJ05AB1234", ocr_confidence=0.20, is_valid_format=True),
+            make_obs("GJ05AB1234", ocr_confidence=0.22, is_valid_format=True),
+            make_obs("GJ05AB1234", ocr_confidence=0.20, is_valid_format=True),
+        ]
+        resolved, lock_type = resolve_temporal_consensus(
+            obs_at_floor, min_observations=3, agreement_ratio=0.60, min_candidate_confidence=0.20
+        )
+        assert resolved == "GJ05AB1234"
+        assert lock_type == "CONSENSUS_LOCK"
+
+    def test_two_observations_insufficient_for_consensus(self):
+        obs = [
+            make_obs("GJ05AB1234", ocr_confidence=0.25, is_valid_format=True),
+            make_obs("GJ05AB1234", ocr_confidence=0.28, is_valid_format=True),
+        ]
+        resolved, lock_type = resolve_temporal_consensus(
+            obs, min_observations=3, agreement_ratio=0.60, min_candidate_confidence=0.20
+        )
+        assert resolved is None
+        assert lock_type is None
+
+    def test_below_60_percent_agreement_unresolved(self):
+        obs = [
+            make_obs("GJ05AB1234", ocr_confidence=0.25, is_valid_format=True),
+            make_obs("MH12CD5678", ocr_confidence=0.25, is_valid_format=True),
+            make_obs("DL01EF9999", ocr_confidence=0.25, is_valid_format=True),
+        ]
+        resolved, lock_type = resolve_temporal_consensus(
+            obs, min_observations=3, agreement_ratio=0.60, min_candidate_confidence=0.20
+        )
+        assert resolved is None
+        assert lock_type is None

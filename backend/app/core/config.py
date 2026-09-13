@@ -5,27 +5,17 @@ Centralized configuration using environment variables with sensible defaults.
 
 import os
 
+from pathlib import Path
+
 try:
     from dotenv import load_dotenv
-    load_dotenv()
+    _env_file = Path(__file__).resolve().parent.parent.parent.parent / ".env"
+    if _env_file.is_file():
+        load_dotenv(dotenv_path=_env_file)
+    else:
+        load_dotenv()
 except ImportError:
     pass
-
-# Ensure server-side credentials are populated from operator session if not already in os.environ
-if not os.environ.get("RTSP_USER") or not os.environ.get("RTSP_PASSWORD"):
-    try:
-        import psutil
-        for p in psutil.process_iter(['pid', 'name']):
-            try:
-                penv = p.environ()
-                if 'RTSP_USER' in penv and 'RTSP_PASSWORD' in penv:
-                    os.environ.setdefault("RTSP_USER", penv['RTSP_USER'])
-                    os.environ.setdefault("RTSP_PASSWORD", penv['RTSP_PASSWORD'])
-                    break
-            except Exception:
-                continue
-    except Exception:
-        pass
 
 
 class Settings:
@@ -62,7 +52,7 @@ class Settings:
 
     # AI / Detection
     AI_MODEL_PATH: str = os.environ.get("AI_MODEL_PATH", "models/yolov8n.pt")
-    ANPR_MODEL_PATH: str = os.environ.get("ANPR_MODEL_PATH", "models/anpr.pt")
+    ANPR_MODEL_PATH: str = os.environ.get("ANPR_MODEL_PATH", "models/license_plate_detector.pt")
     DETECTION_CONFIDENCE: float = float(os.environ.get("DETECTION_CONFIDENCE", "0.40"))
     ANPR_CONFIDENCE: float = float(os.environ.get("ANPR_CONFIDENCE", "0.70"))
 

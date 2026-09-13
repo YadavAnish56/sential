@@ -43,10 +43,11 @@ _NUMERIC_SUBSTITUTIONS: Final[dict[str, str]] = {
     "B": "8",
 }
 
-# Defensible character substitutions for state-code positions (e.g., 0D -> OD for Odisha)
+# Defensible character substitutions for state-code positions (e.g., 0D -> OD for Odisha, 6J -> GJ for Gujarat)
 _STATE_SUBSTITUTIONS: Final[dict[str, str]] = {
     "0": "O",
     "1": "I",
+    "6": "G",
 }
 
 
@@ -56,8 +57,8 @@ def sanitize_plate_string(raw_text: str) -> str:
     """
     if not raw_text:
         return ""
-    # Strip whitespace, hyphens, colons, periods, underscores, slashes
-    return re.sub(r"[\s\-:._,/\\|]+", "", raw_text.strip().upper())
+    # Strip whitespace, hyphens, colons, periods, underscores, slashes, quotes, brackets
+    return re.sub(r"[\s\-:._,/\\|'\"\[\](){}]+", "", raw_text.strip().upper())
 
 
 def disambiguate_numeric_slots(text: str) -> str:

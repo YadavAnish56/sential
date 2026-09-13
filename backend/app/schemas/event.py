@@ -24,6 +24,7 @@ class EventResponse(EventBase):
     """Schema for event API responses."""
     id: int
     timestamp: datetime
+    plate_number: str | None = None
 
     model_config = {"from_attributes": True}
 

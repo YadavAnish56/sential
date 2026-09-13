@@ -39,13 +39,14 @@ services:
       - RTSP_USER=${RTSP_USER:-}
       - RTSP_PASSWORD=${RTSP_PASSWORD:-}
       - AI_MODEL_PATH=/app/models/yolov8n.pt
-      - ANPR_MODEL_PATH=/app/models/anpr.pt
+      - ANPR_MODEL_PATH=/app/models/license_plate_detector.pt
       - CORS_ORIGINS=*
       - DEBUG=true
     ports:
       - "8000:8000"
     volumes:
       - ./models:/app/models:ro
+      - C:/Users/Mohit/.EasyOCR/model:/root/.EasyOCR/model:ro
     depends_on:
       - postgres
       - mediamtx

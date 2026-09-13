@@ -7,5 +7,6 @@ pydantic
 opencv-python
 pytest
 ultralytics
+python-dotenv
 
 
