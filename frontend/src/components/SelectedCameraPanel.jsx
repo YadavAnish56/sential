@@ -14,6 +14,7 @@ export default function SelectedCameraPanel({
   onStartPipeline,
   onStopPipeline,
   onCameraRemoved,
+  targetPlate = null,
 }) {
   const [streamStateOverride, setStreamStateOverride] = useState(null);
   const [streamReasonOverride, setStreamReasonOverride] = useState(null);
@@ -141,6 +142,10 @@ export default function SelectedCameraPanel({
     setStreamStateOverride(status);
     setStreamReasonOverride(reason);
   };
+
+  // The backend only reports an overlay while the pipeline is running, so the
+  // boxes clear themselves the moment AI is stopped.
+  const overlayBoxes = isAiRunning ? (pipelineStatus?.overlay?.boxes || null) : null;
 
   // Technical Telemetry
   const streamProps = pipelineStatus?.stream_health?.properties;
@@ -389,6 +394,8 @@ export default function SelectedCameraPanel({
           pan={panOffset}
           filterPreset={filterPreset}
           onPanChange={setPanOffset}
+          detectionBoxes={overlayBoxes}
+          targetPlate={targetPlate}
         />
       </div>
 

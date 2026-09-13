@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import DetectionOverlay from './DetectionOverlay';
 
 const LivePreview = ({
   webrtcUrl,
@@ -9,6 +10,8 @@ const LivePreview = ({
   pan = { x: 0, y: 0 },
   filterPreset = 'normal',
   onPanChange = null,
+  detectionBoxes = null,
+  targetPlate = null,
 }) => {
   const videoRef = useRef(null);
   const pcRef = useRef(null);
@@ -344,6 +347,17 @@ const LivePreview = ({
               cursor: videoCursor,
               transition: isDraggingRef.current ? 'none' : 'transform 0.15s ease-out',
             }}
+          />
+
+          {/* Boxes ride the same transform as the video so zoom and pan keep
+              them on the vehicles they belong to. */}
+          <DetectionOverlay
+            boxes={detectionBoxes}
+            videoRef={videoRef}
+            containerRef={containerRef}
+            targetPlate={targetPlate}
+            transform={videoTransform}
+            visible={!isLoading && !error}
           />
         </>
       )}

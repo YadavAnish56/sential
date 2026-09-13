@@ -274,6 +274,7 @@ export default function App() {
                     onStartPipeline={handleStartPipeline}
                     onStopPipeline={handleStopPipeline}
                     onCameraRemoved={handleCameraRemoved}
+                    targetPlate={selectedPlate}
                   />
                 </div>
 
@@ -387,6 +388,7 @@ export default function App() {
                     onStartPipeline={handleStartPipeline}
                     onStopPipeline={handleStopPipeline}
                     onCameraRemoved={handleCameraRemoved}
+                    targetPlate={selectedPlate}
                   />
                 </div>
               )}
