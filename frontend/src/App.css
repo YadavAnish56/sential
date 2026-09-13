@@ -2752,3 +2752,23 @@ body {
   font-size: 0.85rem;
   line-height: 1.45;
 }
+
+/* Shown when the AI is running but cannot read plates, so an operator is not
+   left reading busy-looking counters that will never become records. */
+.warning-banner {
+  margin: 0 0 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid #f59e0b;
+  border-left-width: 4px;
+  border-radius: 4px;
+  background: #fffbeb;
+  color: #7c2d12;
+  font-size: 0.86rem;
+  line-height: 1.5;
+}
+
+.health-dashboard-c2 .warning-banner {
+  background: #2a1f05;
+  color: #fde68a;
+  border-color: #b45309;
+}

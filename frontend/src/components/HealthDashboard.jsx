@@ -83,6 +83,7 @@ export default function HealthDashboard({ lightTheme = false }) {
 
   const pipelines = Object.values(pipelineHealth);
   const runningCount = pipelines.filter(isRunning).length;
+  const plateRecognition = systemHealth?.plate_recognition || null;
 
   // Every registered camera gets a row, whether or not a pipeline was ever
   // started for it, so a newly added camera shows up here immediately.
@@ -131,6 +132,15 @@ export default function HealthDashboard({ lightTheme = false }) {
       {error && (
         <div className="error-banner" role="alert">
           <strong>API Error:</strong> {error}
+        </div>
+      )}
+
+      {/* Detection and tracking keep running without plate recognition, so the
+          system looks busy while recording nothing. Say so outright. */}
+      {plateRecognition && plateRecognition.ready === false && (
+        <div className="warning-banner" role="alert" data-testid="plate-recognition-warning">
+          <strong>Plate recognition unavailable.</strong>{' '}
+          {plateRecognition.reason || 'Plates cannot be read on this machine.'}
         </div>
       )}
 
