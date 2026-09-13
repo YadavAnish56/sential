@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import * as ReactLeaflet from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -86,12 +86,19 @@ export default function GISMap({
   const [cameras, setCameras] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const camerasRef = useRef([]);
 
   useEffect(() => {
     let active = true;
-    const fetchCameras = async () => {
-      setLoading(true);
-      setError(null);
+    let retryTimer = null;
+    let retryCount = 0;
+    const MAX_RETRIES = 10;
+
+    const fetchCameras = async (isRetry = false) => {
+      if (!isRetry && camerasRef.current.length === 0) {
+        setLoading(true);
+        setError(null);
+      }
       try {
         const data = await cameraService.getCamerasMap(true);
         if (active) {
@@ -104,21 +111,41 @@ export default function GISMap({
               c.longitude >= -180 &&
               c.longitude <= 180
           );
+          camerasRef.current = safeCameras;
           setCameras(safeCameras);
+          setError(null); // Clear error automatically after successful recovery
+          setLoading(false);
+          retryCount = 0;
         }
       } catch (err) {
         if (active) {
-          setError(err.message || 'Failed to load map data.');
-        }
-      } finally {
-        if (active) {
-          setLoading(false);
+          // Never wipe previously loaded camera/map data
+          if (camerasRef.current.length === 0) {
+            setLoading(false);
+            if (retryCount < MAX_RETRIES) {
+              setError(err.message || 'Failed to load map data.');
+              retryCount += 1;
+              const delay = Math.min(retryCount * 1000, 5000);
+              retryTimer = setTimeout(() => {
+                if (active) fetchCameras(true);
+              }, delay);
+            } else {
+              setError('Map service temporarily unavailable. Backend unreachable after multiple attempts.');
+            }
+          } else {
+            setLoading(false);
+          }
         }
       }
     };
-    fetchCameras();
+
+    fetchCameras(false);
+
     return () => {
       active = false;
+      if (retryTimer) {
+        clearTimeout(retryTimer);
+      }
     };
   }, []);
 

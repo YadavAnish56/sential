@@ -836,6 +836,183 @@ body {
   border-radius: var(--radius-sm);
 }
 
+/* ==========================================================================
+   PLATE DISPLAY ENHANCEMENT TOOLBAR (Phase 2A - Display-Side Only)
+   ========================================================================== */
+
+.plate-enhancement-toolbar {
+  position: absolute;
+  bottom: 0.6rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 15;
+  background: rgba(10, 14, 23, 0.88);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius-md, 6px);
+  padding: 0.4rem 0.65rem;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  max-width: 95%;
+  pointer-events: auto;
+}
+
+.enhancement-toolbar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 0.25rem;
+}
+
+.enhancement-disclaimer-badge {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  color: #F59E0B;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  padding: 2px 6px;
+  border-radius: 3px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.btn-enhancement-reset {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.62rem;
+  font-weight: 600;
+  color: #94A3B8;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 2px 6px;
+  border-radius: 3px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.btn-enhancement-reset:hover {
+  color: #FFFFFF;
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.enhancement-controls-row {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+
+.enhancement-group {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.enhancement-group-title {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.58rem;
+  font-weight: 700;
+  color: #64748B;
+  letter-spacing: 0.5px;
+}
+
+.enhancement-btn-group {
+  display: inline-flex;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  padding: 1px;
+  gap: 1px;
+}
+
+.btn-enhancement-toggle {
+  background: transparent;
+  border: none;
+  color: #94A3B8;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.62rem;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.btn-enhancement-toggle:hover {
+  color: #F8FAFC;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.btn-enhancement-toggle.active {
+  background: var(--color-primary, #3B82F6);
+  color: #FFFFFF;
+  font-weight: 700;
+}
+
+.pan-btn-grid {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+}
+
+.btn-enhancement-nudge {
+  background: transparent;
+  border: none;
+  color: #94A3B8;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.62rem;
+  font-weight: 600;
+  padding: 2px 5px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  min-width: 18px;
+  text-align: center;
+}
+
+.btn-enhancement-nudge:hover:not(:disabled) {
+  color: #FFFFFF;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.btn-enhancement-nudge:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.btn-enhancement-nudge.btn-center {
+  font-size: 0.58rem;
+  padding: 2px 5px;
+}
+
+.live-preview-container.zoom-active {
+  cursor: grab;
+  user-select: none;
+}
+
+.live-preview-container.zoom-active:active {
+  cursor: grabbing;
+}
+
+.live-video-element.filter-contrast {
+  filter: contrast(1.35) brightness(1.05) saturate(1.1);
+}
+
+.live-video-element.filter-night {
+  filter: contrast(1.45) brightness(1.25) grayscale(0.25);
+}
+
+
 .panel-footer {
   display: flex;
   justify-content: space-between;

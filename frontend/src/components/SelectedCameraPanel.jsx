@@ -19,14 +19,48 @@ export default function SelectedCameraPanel({
   const [isActionPending, setIsActionPending] = useState(false);
   const [actionError, setActionError] = useState(null);
 
+  // Display Enhancement State (Display-side only, non-evidentiary)
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+  const [filterPreset, setFilterPreset] = useState('normal');
+
   const testCam = isTestCamera(camera);
 
-  // Reset stream overrides when selected camera changes
+  // Reset stream overrides and display enhancements when selected camera changes
   useEffect(() => {
     setStreamStateOverride(null);
     setStreamReasonOverride(null);
     setActionError(null);
+    setZoomLevel(1);
+    setPanOffset({ x: 0, y: 0 });
+    setFilterPreset('normal');
   }, [camera?.id]);
+
+  const handleZoomChange = (newZoom) => {
+    setZoomLevel(newZoom);
+    if (newZoom === 1) {
+      setPanOffset({ x: 0, y: 0 });
+    }
+  };
+
+  const handleResetEnhancements = () => {
+    setZoomLevel(1);
+    setPanOffset({ x: 0, y: 0 });
+    setFilterPreset('normal');
+  };
+
+  const handlePanNudge = (dx, dy) => {
+    if (zoomLevel <= 1) return;
+    const step = 40;
+    setPanOffset((prev) => ({
+      x: prev.x + dx * step,
+      y: prev.y + dy * step,
+    }));
+  };
+
+  const handleCenterPan = () => {
+    setPanOffset({ x: 0, y: 0 });
+  };
 
   if (!camera) {
     return (
@@ -183,10 +217,151 @@ export default function SelectedCameraPanel({
           <span className="hud-clock">{new Date().toLocaleTimeString()}</span>
         </div>
 
+        {/* DISPLAY ENHANCEMENT CONTROLS TOOLBAR (Active on non-test cameras) */}
+        {!testCam && (
+          <div className="plate-enhancement-toolbar" role="toolbar" aria-label="Plate Display Enhancement Controls">
+            <div className="enhancement-toolbar-header">
+              <span className="enhancement-disclaimer-badge">
+                DISPLAY ENHANCEMENT — NOT EVIDENCE
+              </span>
+              <button
+                type="button"
+                className="btn-enhancement-reset"
+                onClick={handleResetEnhancements}
+                title="Reset all zoom, pan, and filter enhancements to default"
+              >
+                Reset View
+              </button>
+            </div>
+
+            <div className="enhancement-controls-row">
+              {/* Zoom Controls */}
+              <div className="enhancement-group">
+                <span className="enhancement-group-title">ZOOM</span>
+                <div className="enhancement-btn-group" role="group" aria-label="Zoom levels">
+                  <button
+                    type="button"
+                    className={`btn-enhancement-toggle ${zoomLevel === 1 ? 'active' : ''}`}
+                    onClick={() => handleZoomChange(1)}
+                  >
+                    1×
+                  </button>
+                  <button
+                    type="button"
+                    className={`btn-enhancement-toggle ${zoomLevel === 2 ? 'active' : ''}`}
+                    onClick={() => handleZoomChange(2)}
+                  >
+                    2×
+                  </button>
+                  <button
+                    type="button"
+                    className={`btn-enhancement-toggle ${zoomLevel === 4 ? 'active' : ''}`}
+                    onClick={() => handleZoomChange(4)}
+                  >
+                    4×
+                  </button>
+                </div>
+              </div>
+
+              {/* Pan Directional Nudges */}
+              <div className="enhancement-group pan-controls-group">
+                <span className="enhancement-group-title">PAN</span>
+                <div className="enhancement-btn-group pan-btn-grid" role="group" aria-label="Pan directional controls">
+                  <button
+                    type="button"
+                    className="btn-enhancement-nudge"
+                    onClick={() => handlePanNudge(0, 1)}
+                    disabled={zoomLevel <= 1}
+                    title="Pan Up (Nudge)"
+                    aria-label="Pan Up"
+                  >
+                    ▲
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-enhancement-nudge"
+                    onClick={() => handlePanNudge(0, -1)}
+                    disabled={zoomLevel <= 1}
+                    title="Pan Down (Nudge)"
+                    aria-label="Pan Down"
+                  >
+                    ▼
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-enhancement-nudge"
+                    onClick={() => handlePanNudge(1, 0)}
+                    disabled={zoomLevel <= 1}
+                    title="Pan Left (Nudge)"
+                    aria-label="Pan Left"
+                  >
+                    ◀
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-enhancement-nudge"
+                    onClick={() => handlePanNudge(-1, 0)}
+                    disabled={zoomLevel <= 1}
+                    title="Pan Right (Nudge)"
+                    aria-label="Pan Right"
+                  >
+                    ▶
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-enhancement-nudge btn-center"
+                    onClick={handleCenterPan}
+                    disabled={zoomLevel <= 1 || (panOffset.x === 0 && panOffset.y === 0)}
+                    title="Center Pan"
+                    aria-label="Center Pan"
+                  >
+                    Center
+                  </button>
+                </div>
+              </div>
+
+              {/* Filter Preset Controls */}
+              <div className="enhancement-group">
+                <span className="enhancement-group-title">FILTER</span>
+                <div className="enhancement-btn-group" role="group" aria-label="Visual presentation filters">
+                  <button
+                    type="button"
+                    className={`btn-enhancement-toggle ${filterPreset === 'normal' ? 'active' : ''}`}
+                    onClick={() => setFilterPreset('normal')}
+                  >
+                    Normal
+                  </button>
+                  <button
+                    type="button"
+                    className={`btn-enhancement-toggle ${filterPreset === 'contrast' ? 'active' : ''}`}
+                    onClick={() => setFilterPreset('contrast')}
+                    title="High contrast filter for daytime glare and faded plates"
+                  >
+                    Contrast Boost
+                  </button>
+                  <button
+                    type="button"
+                    className={`btn-enhancement-toggle ${filterPreset === 'night' ? 'active' : ''}`}
+                    onClick={() => setFilterPreset('night')}
+                    title="Shadow brightness boost for night and low-light plates"
+                  >
+                    Night Boost
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         <LivePreview
           webrtcUrl={whepUrl}
           isTestMode={testCam}
           onStreamStatusChange={handleStreamStatusChange}
+          enableEnhancements={!testCam}
+          zoom={zoomLevel}
+          pan={panOffset}
+          filterPreset={filterPreset}
+          onPanChange={setPanOffset}
         />
       </div>
 

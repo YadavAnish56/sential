@@ -1,10 +1,105 @@
 import React, { useEffect, useRef, useState } from 'react';
 
-const LivePreview = ({ webrtcUrl, isTestMode = false, onStreamStatusChange = null }) => {
+const LivePreview = ({
+  webrtcUrl,
+  isTestMode = false,
+  onStreamStatusChange = null,
+  enableEnhancements = false,
+  zoom = 1,
+  pan = { x: 0, y: 0 },
+  filterPreset = 'normal',
+  onPanChange = null,
+}) => {
   const videoRef = useRef(null);
   const pcRef = useRef(null);
+  const containerRef = useRef(null);
+  const isDraggingRef = useRef(false);
+  const dragStartRef = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(!isTestMode);
+
+  // Calculate pan clamping strictly within rendered video content bounds (accounts for object-fit: contain and letterboxing)
+  const clampPan = (targetX, targetY, currentZoom) => {
+    if (!containerRef.current || currentZoom <= 1) {
+      return { x: 0, y: 0 };
+    }
+    const rect = containerRef.current.getBoundingClientRect();
+    const containerW = rect.width;
+    const containerH = rect.height;
+    if (containerW <= 0 || containerH <= 0) {
+      return { x: 0, y: 0 };
+    }
+
+    // Determine intrinsic video aspect ratio (fallback to 16:9 standard for CCTV)
+    const videoEl = videoRef.current;
+    let videoAspect = 16 / 9;
+    if (videoEl && videoEl.videoWidth > 0 && videoEl.videoHeight > 0) {
+      videoAspect = videoEl.videoWidth / videoEl.videoHeight;
+    }
+
+    const containerAspect = containerW / containerH;
+    let renderedW = containerW;
+    let renderedH = containerH;
+
+    if (videoAspect > containerAspect) {
+      // Letterboxed on top/bottom
+      renderedW = containerW;
+      renderedH = containerW / videoAspect;
+    } else {
+      // Pillarboxed on left/right
+      renderedH = containerH;
+      renderedW = containerH * videoAspect;
+    }
+
+    // Maximum pan bounds to allow reaching video edges while preventing black gap voids
+    const maxPanX = Math.max(0, (renderedW * currentZoom - containerW) / 2);
+    const maxPanY = Math.max(0, (renderedH * currentZoom - containerH) / 2);
+
+    return {
+      x: Math.max(-maxPanX, Math.min(maxPanX, targetX)),
+      y: Math.max(-maxPanY, Math.min(maxPanY, targetY)),
+    };
+  };
+
+  const handlePointerDown = (e) => {
+    if (!enableEnhancements || zoom <= 1) return;
+    if (e.button !== undefined && e.button !== 0) return;
+    isDraggingRef.current = true;
+    dragStartRef.current = {
+      x: e.clientX,
+      y: e.clientY,
+      panX: pan.x,
+      panY: pan.y,
+    };
+    if (e.currentTarget && typeof e.currentTarget.setPointerCapture === 'function') {
+      try {
+        e.currentTarget.setPointerCapture(e.pointerId);
+      } catch (_) {}
+    }
+  };
+
+  const handlePointerMove = (e) => {
+    if (!isDraggingRef.current || !enableEnhancements || zoom <= 1) return;
+    const dx = e.clientX - dragStartRef.current.x;
+    const dy = e.clientY - dragStartRef.current.y;
+    const rawX = dragStartRef.current.panX + dx;
+    const rawY = dragStartRef.current.panY + dy;
+    const clamped = clampPan(rawX, rawY, zoom);
+    if (onPanChange) {
+      onPanChange(clamped);
+    }
+  };
+
+  const handlePointerUp = (e) => {
+    if (isDraggingRef.current) {
+      isDraggingRef.current = false;
+      if (e.currentTarget && typeof e.currentTarget.releasePointerCapture === 'function') {
+        try {
+          e.currentTarget.releasePointerCapture(e.pointerId);
+        } catch (_) {}
+      }
+    }
+  };
 
   useEffect(() => {
     // 1. If explicit test camera, don't attempt WebRTC negotiation
@@ -178,8 +273,39 @@ const LivePreview = ({ webrtcUrl, isTestMode = false, onStreamStatusChange = nul
     };
   }, [webrtcUrl, isTestMode]);
 
+  // Display presentation filter string
+  let filterCss = 'none';
+  if (enableEnhancements) {
+    if (filterPreset === 'contrast') {
+      filterCss = 'contrast(1.35) brightness(1.05) saturate(1.1)';
+    } else if (filterPreset === 'night') {
+      filterCss = 'contrast(1.45) brightness(1.25) grayscale(0.25)';
+    }
+  }
+
+  // Active clamped pan for style
+  const activePan = enableEnhancements && zoom > 1 ? clampPan(pan.x, pan.y, zoom) : { x: 0, y: 0 };
+
+  const videoTransform = enableEnhancements && zoom > 1
+    ? `translate(${activePan.x}px, ${activePan.y}px) scale(${zoom})`
+    : (zoom > 1 ? `scale(${zoom})` : 'none');
+
+  const videoCursor = enableEnhancements && zoom > 1 ? 'grab' : 'default';
+
   return (
-    <div className="live-preview-container">
+    <div
+      ref={containerRef}
+      className={`live-preview-container ${enableEnhancements && zoom > 1 ? 'zoom-active' : ''}`}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerUp}
+      style={{
+        overflow: 'hidden',
+        position: 'relative',
+        touchAction: enableEnhancements && zoom > 1 ? 'none' : 'auto',
+      }}
+    >
       {isTestMode ? (
         <div className="test-camera-placeholder" role="note">
           <div className="placeholder-tag">[TEST NODE]</div>
@@ -209,9 +335,14 @@ const LivePreview = ({ webrtcUrl, isTestMode = false, onStreamStatusChange = nul
             autoPlay
             playsInline
             muted
-            className="live-video-element"
+            className={`live-video-element ${enableEnhancements && filterPreset !== 'normal' ? `filter-${filterPreset}` : ''}`}
             style={{
-              display: (isLoading || error) ? 'none' : 'block'
+              display: (isLoading || error) ? 'none' : 'block',
+              transform: videoTransform,
+              transformOrigin: 'center center',
+              filter: filterCss,
+              cursor: videoCursor,
+              transition: isDraggingRef.current ? 'none' : 'transform 0.15s ease-out',
             }}
           />
         </>

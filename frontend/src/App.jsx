@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import CameraList from './components/CameraList';
 import SelectedCameraPanel from './components/SelectedCameraPanel';
 import GISMap from './components/GISMap';
@@ -16,6 +16,7 @@ export default function App() {
   const [mode, setMode] = useState('surveillance'); // 'surveillance' | 'investigation' | 'records' | 'watchlist' | 'health'
   const [surveillanceView, setSurveillanceView] = useState('wall'); // 'wall' | 'detections'
   const [cameras, setCameras] = useState([]);
+  const [cameraError, setCameraError] = useState(null);
   const [selectedCameraId, setSelectedCameraId] = useState(null);
   const [pipelinesStatus, setPipelinesStatus] = useState({});
   const [selectedPlate, setSelectedPlate] = useState('');
@@ -25,7 +26,12 @@ export default function App() {
   // Modal states
   const [isAddCameraOpen, setIsAddCameraOpen] = useState(false);
 
-  // Fetch camera catalog
+  // References for bounded retry control and unmount cleanup
+  const camerasRef = useRef([]);
+  const retryCountRef = useRef(0);
+  const retryTimerRef = useRef(null);
+
+  // Fetch camera catalog with bounded retry (max 10 attempts with backoff)
   const loadCameras = useCallback(async () => {
     try {
       const data = await cameraService.getCameras();
@@ -36,14 +42,37 @@ export default function App() {
         camera_code: c.camera_code ?? c.camera_id,
         status: (c.status || c.connectivity_status || 'offline').toLowerCase(),
       }));
+      camerasRef.current = cams;
       setCameras(cams);
-      if (cams.length > 0 && selectedCameraId === null) {
-        setSelectedCameraId(cams[0].id);
+      setCameraError(null);
+      retryCountRef.current = 0;
+      if (retryTimerRef.current) {
+        clearTimeout(retryTimerRef.current);
+        retryTimerRef.current = null;
       }
+      if (cams.length > 0) {
+        setSelectedCameraId((prev) => (prev === null ? cams[0].id : prev));
+      }
+      return true;
     } catch (err) {
       console.error('Failed to load cameras in App:', err);
+      // Retain existing camera state; never wipe previously loaded cameras
+      if (camerasRef.current.length === 0) {
+        const MAX_RETRIES = 10;
+        if (retryCountRef.current < MAX_RETRIES) {
+          retryCountRef.current += 1;
+          const delay = Math.min(retryCountRef.current * 1000, 5000);
+          if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+          retryTimerRef.current = setTimeout(() => {
+            loadCameras();
+          }, delay);
+        } else {
+          setCameraError('Camera service temporarily unavailable. Backend unreachable after multiple attempts.');
+        }
+      }
+      return false;
     }
-  }, [selectedCameraId]);
+  }, []);
 
   // Poll pipelines status
   const pollPipelineStatus = useCallback(async () => {
@@ -74,7 +103,14 @@ export default function App() {
       pollPipelineStatus();
       pollAlerts();
     }, 5000);
-    return () => clearInterval(interval);
+
+    return () => {
+      clearInterval(interval);
+      if (retryTimerRef.current) {
+        clearTimeout(retryTimerRef.current);
+        retryTimerRef.current = null;
+      }
+    };
   }, [loadCameras, pollPipelineStatus, pollAlerts]);
 
   const handleSelectCamera = (id) => {
@@ -259,13 +295,30 @@ export default function App() {
                   </div>
                   <div className="camera-wall-scroll">
                     {surveillanceView === 'wall' ? (
-                      <CameraList
-                        compactMode={true}
-                        selectedCameraId={selectedCameraId}
-                        onSelectCamera={handleSelectCamera}
-                        cameras={cameras}
-                        pipelinesStatus={pipelinesStatus}
-                      />
+                      cameraError && cameras.length === 0 ? (
+                        <div className="camera-service-error" role="alert" style={{ padding: '2rem', textAlign: 'center', color: '#EF4444' }}>
+                          <p style={{ fontWeight: 600, marginBottom: '0.5rem' }}>{cameraError}</p>
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-outline"
+                            onClick={() => {
+                              retryCountRef.current = 0;
+                              setCameraError(null);
+                              loadCameras();
+                            }}
+                          >
+                            Retry Connection
+                          </button>
+                        </div>
+                      ) : (
+                        <CameraList
+                          compactMode={true}
+                          selectedCameraId={selectedCameraId}
+                          onSelectCamera={handleSelectCamera}
+                          cameras={cameras}
+                          pipelinesStatus={pipelinesStatus}
+                        />
+                      )
                     ) : (
                       <LivePlateFeed
                         onSelectPlate={handlePlateSelect}
