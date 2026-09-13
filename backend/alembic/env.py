@@ -26,6 +26,7 @@ from app.models.event import Event
 from app.models.vehicle import Vehicle
 from app.models.alert import Alert
 from app.models.camera_status import CameraStatusHistory
+from app.models.watchlist import Watchlist
 
 target_metadata = Base.metadata
 

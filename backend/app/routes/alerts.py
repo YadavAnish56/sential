@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.database.dependencies import get_db
 from app.models.alert import Alert
 from app.models.camera import Camera
+from app.models.vehicle import Vehicle
 from app.schemas.alert import (
     AlertCreate,
     AlertUpdate,
@@ -25,15 +26,25 @@ def list_alerts(
     db: Session = Depends(get_db),
 ):
     """List alerts with optional status/severity filters."""
-    query = db.query(Alert)
+    query = (
+        db.query(Alert, Vehicle.plate_number)
+        .outerjoin(Vehicle, Alert.vehicle_id == Vehicle.id)
+    )
     if status:
         query = query.filter(Alert.status == status)
     if severity:
         query = query.filter(Alert.severity == severity)
     total = query.count()
-    alerts = query.order_by(Alert.timestamp.desc()).offset(skip).limit(limit).all()
+    rows = query.order_by(Alert.timestamp.desc()).offset(skip).limit(limit).all()
+
+    items = []
+    for a, plate in rows:
+        resp = AlertResponse.model_validate(a)
+        resp.plate_number = plate
+        items.append(resp)
+
     return AlertListResponse(
-        alerts=[AlertResponse.model_validate(a) for a in alerts],
+        alerts=items,
         total=total,
     )
 
@@ -41,10 +52,18 @@ def list_alerts(
 @router.get("/{alert_id}", response_model=AlertResponse)
 def get_alert(alert_id: int, db: Session = Depends(get_db)):
     """Get a single alert by ID."""
-    alert = db.query(Alert).filter(Alert.id == alert_id).first()
-    if not alert:
+    row = (
+        db.query(Alert, Vehicle.plate_number)
+        .outerjoin(Vehicle, Alert.vehicle_id == Vehicle.id)
+        .filter(Alert.id == alert_id)
+        .first()
+    )
+    if not row:
         raise HTTPException(status_code=404, detail=f"Alert {alert_id} not found")
-    return AlertResponse.model_validate(alert)
+    alert, plate = row
+    resp = AlertResponse.model_validate(alert)
+    resp.plate_number = plate
+    return resp
 
 
 @router.post("", response_model=AlertResponse, status_code=201)
@@ -60,7 +79,16 @@ def create_alert(payload: AlertCreate, db: Session = Depends(get_db)):
     db.add(alert)
     db.commit()
     db.refresh(alert)
-    return AlertResponse.model_validate(alert)
+
+    plate = None
+    if alert.vehicle_id:
+        v = db.query(Vehicle).filter(Vehicle.id == alert.vehicle_id).first()
+        if v:
+            plate = v.plate_number
+
+    resp = AlertResponse.model_validate(alert)
+    resp.plate_number = plate
+    return resp
 
 
 @router.patch("/{alert_id}", response_model=AlertResponse)
@@ -76,4 +104,13 @@ def update_alert(
         setattr(alert, field, value)
     db.commit()
     db.refresh(alert)
-    return AlertResponse.model_validate(alert)
+
+    plate = None
+    if alert.vehicle_id:
+        v = db.query(Vehicle).filter(Vehicle.id == alert.vehicle_id).first()
+        if v:
+            plate = v.plate_number
+
+    resp = AlertResponse.model_validate(alert)
+    resp.plate_number = plate
+    return resp

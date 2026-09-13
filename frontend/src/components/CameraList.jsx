@@ -2,20 +2,35 @@ import React, { useState, useEffect, useRef } from 'react';
 import { cameraService } from '../api/cameraService';
 import CameraCard from './CameraCard';
 
-export default function CameraList() {
+export default function CameraList({
+  selectedCameraId = null,
+  onSelectCamera = null,
+  compactMode = false,
+  cameras: propCameras = null,
+  pipelinesStatus: propPipelinesStatus = null,
+}) {
+  const isControlled = Array.isArray(propCameras);
   const [cameras, setCameras] = useState([]);
   const [pipelinesStatus, setPipelinesStatus] = useState({});
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!isControlled);
   const [error, setError] = useState(null);
 
   const fetchPipelinesInProgress = useRef(false);
 
   const fetchCamerasAndStatus = async () => {
+    if (isControlled) return;
     try {
       setLoading(true);
       setError(null);
       const data = await cameraService.getCameras();
-      setCameras(data.cameras || []);
+      const rawList = Array.isArray(data) ? data : (data?.cameras || []);
+      const cams = rawList.map((c) => ({
+        ...c,
+        id: c.id ?? c.camera_id,
+        camera_code: c.camera_code ?? c.camera_id,
+        status: (c.status || c.connectivity_status || 'offline').toLowerCase(),
+      }));
+      setCameras(cams);
       
       await fetchPipelinesStatus();
     } catch (err) {
@@ -26,6 +41,7 @@ export default function CameraList() {
   };
 
   const fetchPipelinesStatus = async () => {
+    if (propPipelinesStatus !== null) return;
     if (fetchPipelinesInProgress.current) return;
     
     fetchPipelinesInProgress.current = true;
@@ -60,27 +76,33 @@ export default function CameraList() {
     await fetchPipelinesStatus();
   };
 
-  if (loading) {
+  const finalCameras = isControlled ? propCameras : cameras;
+  const finalPipelines = propPipelinesStatus !== null ? propPipelinesStatus : pipelinesStatus;
+
+  if (loading && !isControlled) {
     return <div className="loading">Loading cameras...</div>;
   }
 
-  if (error) {
+  if (error && !isControlled && finalCameras.length === 0) {
     return <div className="error-banner">Error: {error}</div>;
   }
 
   return (
     <div className="camera-list-container">
-      {cameras.length === 0 ? (
+      {finalCameras.length === 0 ? (
         <p className="empty-state">No cameras registered in the system.</p>
       ) : (
-        <div className="camera-grid">
-          {cameras.map((camera) => (
+        <div className={compactMode ? "camera-wall-grid" : "camera-grid"}>
+          {finalCameras.map((camera) => (
             <CameraCard
               key={camera.id}
               camera={camera}
-              pipelineStatus={pipelinesStatus[camera.camera_code]}
+              pipelineStatus={finalPipelines[camera.camera_code]}
               onStart={handleStartPipeline}
               onStop={handleStopPipeline}
+              isSelected={camera.id === selectedCameraId || camera.camera_code === selectedCameraId}
+              onSelect={onSelectCamera}
+              compact={compactMode}
             />
           ))}
         </div>

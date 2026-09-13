@@ -15,9 +15,14 @@ from .preprocessor import (
     extract_vehicle_crop,
     compute_crop_quality,
     preprocess_crop_for_ocr,
+    extract_plate_crop,
+    compute_plate_sharpness,
+    preprocess_plate_for_ocr,
+    is_two_row_plate,
 )
 from .recognizer import BasePlateRecognizer, MockPlateRecognizer, EasyOCRPlateRecognizer
-from .coordinator import ANPRCoordinator
+from .plate_detector import PlateDetector, DetectedPlate
+from .coordinator import ANPRCoordinator, resolve_temporal_consensus
 
 __all__ = [
     "PlateCandidate",
@@ -30,9 +35,16 @@ __all__ = [
     "extract_vehicle_crop",
     "compute_crop_quality",
     "preprocess_crop_for_ocr",
+    "extract_plate_crop",
+    "compute_plate_sharpness",
+    "preprocess_plate_for_ocr",
+    "is_two_row_plate",
     "BasePlateRecognizer",
     "MockPlateRecognizer",
     "EasyOCRPlateRecognizer",
+    "PlateDetector",
+    "DetectedPlate",
     "ANPRCoordinator",
+    "resolve_temporal_consensus",
 ]
 

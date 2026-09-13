@@ -1,6 +1,15 @@
+import sys
+from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 from unittest.mock import patch, MagicMock
+
+# Ensure Sentinel root and backend root are on sys.path
+sentinel_root = Path(__file__).resolve().parent.parent.parent
+backend_dir = sentinel_root / "backend"
+for path_str in [str(sentinel_root), str(backend_dir)]:
+    if path_str not in sys.path:
+        sys.path.insert(0, path_str)
 
 # We must import the main app
 from app.main import app, lifespan
@@ -30,9 +39,16 @@ async def test_fastapi_lifecycle_integration():
     mock_dispatcher_instance = MagicMock()
     mock_dispatcher_cls.return_value = mock_dispatcher_instance
 
+    mock_recognizer_cls = MagicMock()
+    mock_recognizer_instance = MagicMock()
+    mock_recognizer_instance.status = "READY"
+    mock_recognizer_instance.device = "cuda"
+    mock_recognizer_cls.return_value = mock_recognizer_instance
+
     with patch("app.main.CameraPipelineManager", mock_pipeline_manager_cls), \
          patch("app.main.ANPRPersistenceWorker", mock_worker_cls), \
-         patch("app.main.PersistenceDispatcher", mock_dispatcher_cls):
+         patch("app.main.PersistenceDispatcher", mock_dispatcher_cls), \
+         patch("app.main.EasyOCRPlateRecognizer", mock_recognizer_cls):
         
         # Manually invoke the lifespan context manager
         async with lifespan(app):
@@ -45,14 +61,16 @@ async def test_fastapi_lifecycle_integration():
             _, kwargs = mock_dispatcher_cls.call_args
             assert kwargs["worker"] == mock_worker_instance
             
-            # 3. Verify CameraPipelineManager was created with the dispatcher
+            # 3. Verify CameraPipelineManager was created with detector, recognizer, and dispatcher
             mock_pipeline_manager_cls.assert_called_once()
             _, kwargs = mock_pipeline_manager_cls.call_args
             assert kwargs["dispatcher"] == mock_dispatcher_instance
+            assert kwargs["plate_recognizer"] == mock_recognizer_instance
             
             # 4. State should be attached to app
             assert getattr(app.state, "pipeline_manager", None) == mock_pipeline_manager_instance
             assert getattr(app.state, "anpr_worker", None) == mock_worker_instance
+            assert getattr(app.state, "plate_recognizer", None) == mock_recognizer_instance
             
         # Shutdown sequence validation (after leaving context manager)
         # 5. Verify pipelines are stopped

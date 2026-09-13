@@ -23,10 +23,10 @@ from streaming.frame_reader import FramePacket
 
 try:
     from .schemas import Detection, DetectionResult
-    from .config import DetectorConfig, DEFAULT_TARGET_CLASSES
+    from .config import DetectorConfig, DEFAULT_TARGET_CLASSES, resolve_model_path
 except ImportError:
     from schemas import Detection, DetectionResult
-    from config import DetectorConfig, DEFAULT_TARGET_CLASSES
+    from config import DetectorConfig, DEFAULT_TARGET_CLASSES, resolve_model_path
 
 
 logger = logging.getLogger("sentinel.ai_engine.detector")
@@ -99,7 +99,7 @@ class VehicleDetector:
 
     def _load_model(self) -> None:
         """Load YOLOv8 model weights and resolve target vehicle class IDs."""
-        path = self.config.model_path
+        path = resolve_model_path(self.config.model_path, "models/yolov8n.pt")
 
         if not path or not os.path.isfile(path):
             self.status = "MODEL_NOT_AVAILABLE"

@@ -27,6 +27,15 @@ vi.mock('../api/cameraService', () => ({
   }
 }));
 
+vi.mock('react-leaflet', () => ({
+  MapContainer: ({ children }) => <div data-testid="map-container">{children}</div>,
+  TileLayer: () => <div data-testid="tile-layer" />,
+  Marker: ({ children, position }) => <div data-testid={`marker-${position[0]}-${position[1]}`}>{children}</div>,
+  Polyline: () => <div data-testid="polyline" />,
+  Popup: ({ children }) => <div data-testid="popup">{children}</div>,
+  useMap: () => ({ fitBounds: vi.fn() }),
+}));
+
 const mockCameras = {
   cameras: [
     { id: 101, camera_code: 'CAM-A', name: 'Main Gate' }
@@ -157,6 +166,29 @@ describe('Analytics components integration tests', () => {
     });
   });
 
+  test('T13: Timeline renders map and markers when valid coordinates are present', async () => {
+    const mockMappedTimeline = {
+      plate_number: 'MAP-123',
+      vehicle: { id: 60, plate_number: 'MAP-123' },
+      timeline: [
+        { event_id: 10, camera_id: 101, camera_code: 'CAM-A', camera_name: 'Main Gate', latitude: 40.0, longitude: -70.0, event_type: 'vehicle_detected', confidence: 0.95, timestamp: '2026-09-07T10:00:00Z' },
+        { event_id: 11, camera_id: 102, camera_code: 'CAM-B', camera_name: 'Exit', latitude: 40.1, longitude: -70.1, event_type: 'vehicle_detected', confidence: 0.96, timestamp: '2026-09-07T10:05:00Z' }
+      ],
+      total_detections: 2
+    };
+    analyticsService.getVehicleTimeline.mockResolvedValue(mockMappedTimeline);
+    
+    render(<VehicleTimeline plateNumber="MAP-123" onClose={vi.fn()} />);
+    
+    await waitFor(() => {
+      expect(screen.getByTestId('map-container')).toBeInTheDocument();
+    });
+    
+    expect(screen.getByTestId('polyline')).toBeInTheDocument();
+    expect(screen.getByTestId('marker-40--70')).toBeInTheDocument();
+    expect(screen.getByTestId('marker-40.1--70.1')).toBeInTheDocument();
+  });
+
   test('Search T1 & T2 & T3 & T4: VehicleSearch input, loading, results, select', async () => {
     analyticsService.searchVehicles.mockResolvedValue(mockSearchResults);
     const onPlateSelect = vi.fn();
@@ -209,7 +241,7 @@ describe('Analytics components integration tests', () => {
     });
   });
 
-  test('T13 & T14: App integrates EventFeed, Search, and Timeline safely', async () => {
+  test('T13 & T14: App separates Surveillance from dedicated Investigation and Records workspaces', async () => {
     analyticsService.getRecentEvents.mockResolvedValue(mockEvents);
     analyticsService.getVehicles.mockResolvedValue(mockVehicles);
     cameraService.getCameras.mockResolvedValue(mockCameras);
@@ -223,28 +255,17 @@ describe('Analytics components integration tests', () => {
     });
 
     expect(screen.getByText('CAM-A')).toBeInTheDocument();
-    expect(screen.getByText('Recent Detections')).toBeInTheDocument();
-    expect(screen.getByText('Select a plate from the event feed to view its cross-camera timeline.')).toBeInTheDocument();
-    expect(screen.getByPlaceholderText('Enter plate number...')).toBeInTheDocument();
-
-    const plateBtn = screen.getByRole('button', { name: 'Plate: ABC-123' });
-    await act(async () => {
-      fireEvent.click(plateBtn);
-    });
-
-    expect(analyticsService.getVehicleTimeline).toHaveBeenCalledWith('ABC-123');
     
-    await waitFor(() => {
-      expect(screen.getByText('Timeline: ABC-123')).toBeInTheDocument();
-    });
+    // Surveillance workspace does NOT contain the old bloated intelligence tray
+    expect(screen.queryByText('Recent Detections')).not.toBeInTheDocument();
 
-    const closeBtn = screen.getByLabelText('Close timeline');
+    // Switch to Investigation workspace
+    const investTab = screen.getByRole('tab', { name: /INVESTIGATION/i });
     await act(async () => {
-      fireEvent.click(closeBtn);
+      fireEvent.click(investTab);
     });
 
-    await waitFor(() => {
-      expect(screen.getByText('Select a plate from the event feed to view its cross-camera timeline.')).toBeInTheDocument();
-    });
+    expect(screen.getByText(/TARGET REGISTRATION PLATE/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /SEARCH EXISTING RECORDS/i })).toBeInTheDocument();
   });
 });

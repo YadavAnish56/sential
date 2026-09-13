@@ -10,6 +10,7 @@ from app.models.camera import Camera
 from app.models.camera_status import CameraStatusHistory
 from app.models.event import Event
 from app.models.vehicle import Vehicle
+from app.models.watchlist import Watchlist
 
 __all__ = [
     "Alert",
@@ -17,4 +18,5 @@ __all__ = [
     "CameraStatusHistory",
     "Event",
     "Vehicle",
+    "Watchlist",
 ]
