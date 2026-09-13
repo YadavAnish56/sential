@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { toCsv, downloadCsv, timestampedFilename } from '../utils/csv';
 import { analyticsService } from '../api/analyticsService';
 import { alertService } from '../api/alertService';
 import { watchlistService } from '../api/watchlistService';
@@ -172,59 +173,75 @@ export default function RecordsWorkspace({ onSelectPlate = null, onSelectCamera 
     });
   }, [events, archiveCameraFilter, archivePlateQuery, archiveDateStart, archiveDateEnd]);
 
-  // CSV Export for Historical Audit Archive
+  // Every tab exports what is currently on screen, filters included, so what
+  // an investigator hands over matches what they were looking at.
+  const buildExport = () => {
+    const camCode = (id) => (cameras[id] || {}).code || (id != null ? `CAM-${id}` : '');
+    const iso = (value) => (value ? new Date(value).toISOString() : '');
+    const pct = (value) => (value != null ? `${(value * 100).toFixed(1)}%` : '');
+
+    switch (activeTab) {
+      case 'vehicles':
+        return {
+          name: 'vehicles',
+          headers: ['Plate', 'First Seen', 'Last Seen', 'Sightings', 'Vehicle Type', 'Make', 'Model', 'Colour'],
+          rows: filteredVehicles.map((v) => [
+            v.plate_number, iso(v.first_seen), iso(v.last_seen),
+            v.sighting_count ?? '', v.vehicle_type || '', v.make || '', v.model || '', v.color || '',
+          ]),
+        };
+      case 'events':
+        return {
+          name: 'detections',
+          headers: ['Camera', 'Timestamp', 'PTS (ms)', 'Plate', 'Event', 'Confidence', 'Vehicle Type', 'Make', 'Model', 'Colour'],
+          rows: filteredEvents.map((e) => [
+            camCode(e.camera_id), iso(e.timestamp), e.pts ?? e.pts_ms ?? '',
+            e.plate_number || '', e.event_type || '', pct(e.confidence),
+            e.vehicle_type || '', e.make || '', e.model || '', e.color || '',
+          ]),
+        };
+      case 'alerts':
+        return {
+          name: 'alerts',
+          headers: ['Alert ID', 'Severity', 'Type', 'Camera', 'Raised At', 'Plate', 'Status', 'Message'],
+          rows: filteredAlerts.map((a) => [
+            a.id, a.severity || '', a.alert_type || '', camCode(a.camera_id),
+            iso(a.created_at || a.timestamp), a.plate_number || '', a.status || '', a.message || '',
+          ]),
+        };
+      case 'watchlist':
+        return {
+          name: 'watchlist',
+          headers: ['Plate', 'Description', 'Severity', 'Status', 'Added'],
+          rows: filteredWatchlist.map((w) => [
+            w.plate_number, w.description || '', w.severity || '',
+            w.is_active ? 'ACTIVE' : 'INACTIVE', iso(w.created_at),
+          ]),
+        };
+      case 'archive':
+      default:
+        return {
+          name: 'audit_archive',
+          headers: ['Camera', 'Plate', 'Timestamp', 'PTS (ms)', 'Confidence', 'Vehicle Type', 'Make', 'Model', 'Colour', 'Watchlist Match'],
+          rows: filteredAuditEvents.map((e) => {
+            const plate = (e.plate_number || '').trim().toUpperCase();
+            return [
+              camCode(e.camera_id), plate || 'UNKNOWN', iso(e.timestamp),
+              e.pts ?? e.pts_ms ?? '', pct(e.confidence),
+              e.vehicle_type || e.object_type || '', e.make || '', e.model || '', e.color || '',
+              watchlistSet.has(plate) ? 'YES' : 'NO',
+            ];
+          }),
+        };
+    }
+  };
+
+  const exportable = buildExport();
+
   const handleExportCsv = () => {
-    const headers = [
-      'Camera ID',
-      'Camera Code',
-      'Plate',
-      'Timestamp (ISO)',
-      'PTS (ms)',
-      'Confidence (%)',
-      'Vehicle Type',
-      'Make',
-      'Model',
-      'Color',
-      'Alert State',
-    ];
-
-    const rows = filteredAuditEvents.map((e) => {
-      const camMeta = cameras[e.camera_id] || {};
-      const plate = (e.plate_number || 'UNKNOWN').trim().toUpperCase();
-      const isAlert = watchlistSet.has(plate);
-      const conf = e.confidence != null ? (e.confidence * 100).toFixed(1) : 'N/A';
-      const pts = e.pts ?? e.pts_ms ?? 'N/A';
-      const vType = (e.vehicle_type || e.object_type || 'VEHICLE').toUpperCase();
-      const make = e.make ? String(e.make).toUpperCase() : 'NOT AVAILABLE';
-      const model = e.model ? String(e.model).toUpperCase() : 'NOT AVAILABLE';
-      const color = e.color ? String(e.color).toUpperCase() : 'NOT AVAILABLE';
-      const time = e.timestamp ? new Date(e.timestamp).toISOString() : '';
-
-      return [
-        `"CAM-${e.camera_id}"`,
-        `"${camMeta.code || `cam${e.camera_id}`}"`,
-        `"${plate}"`,
-        `"${time}"`,
-        `"${pts}"`,
-        `"${conf}"`,
-        `"${vType}"`,
-        `"${make}"`,
-        `"${model}"`,
-        `"${color}"`,
-        `"${isAlert ? 'WATCHLIST MATCH' : 'STANDARD'}"`,
-      ].join(',');
-    });
-
-    const csvContent = [headers.join(','), ...rows].join('\r\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `sentinel_audit_archive_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    const { name, headers, rows } = buildExport();
+    if (rows.length === 0) return;
+    downloadCsv(timestampedFilename(`sentinel_${name}`), toCsv(headers, rows));
   };
 
   return (
@@ -263,6 +280,20 @@ export default function RecordsWorkspace({ onSelectPlate = null, onSelectCamera 
           <span className="c2-label">Records</span>
           <span className="c2-sublabel">Vehicle sightings and alerts</span>
         </div>
+
+        <button
+          type="button"
+          className="btn btn-primary btn-sm btn-export-csv"
+          onClick={handleExportCsv}
+          disabled={exportable.rows.length === 0}
+          title={
+            exportable.rows.length === 0
+              ? 'Nothing to export on this tab'
+              : `Download these ${exportable.rows.length} rows as CSV`
+          }
+        >
+          Export CSV
+        </button>
 
         <div className="records-tab-bar" role="tablist">
           <button
@@ -405,17 +436,6 @@ export default function RecordsWorkspace({ onSelectPlate = null, onSelectCamera 
               />
             </div>
 
-            <div className="archive-actions-group">
-              <button
-                type="button"
-                className="btn btn-primary btn-sm btn-export-csv"
-                onClick={handleExportCsv}
-                disabled={filteredAuditEvents.length === 0}
-                title="Download CSV export of filtered audit events"
-              >
-                EXPORT AUDIT LOG (CSV)
-              </button>
-            </div>
           </div>
 
           <div className="archive-audit-notice">

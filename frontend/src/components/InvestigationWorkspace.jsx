@@ -11,6 +11,7 @@ export default function InvestigationWorkspace({
   onInvestigationPathChange = null,
   onRefreshPipelines = null,
   initialPlate = '',
+  onSearchStateChange = null,
 }) {
   const [targetPlate, setTargetPlate] = useState(initialPlate || '');
   const [timeWindow, setTimeWindow] = useState('all'); // '1h' | '2h' | '6h' | '24h' | 'custom' | 'all'
@@ -30,6 +31,12 @@ export default function InvestigationWorkspace({
   // Batch AI action state
   const [isAiBatchPending, setIsAiBatchPending] = useState(false);
   const [aiActionMessage, setAiActionMessage] = useState(null);
+
+  // The shell only reveals a checkpoint feed once an investigation is running,
+  // so it needs to know when a search has been executed or cleared.
+  useEffect(() => {
+    if (onSearchStateChange) onSearchStateChange(searchExecuted);
+  }, [searchExecuted, onSearchStateChange]);
 
   // Sync initialPlate if provided as prop
   useEffect(() => {

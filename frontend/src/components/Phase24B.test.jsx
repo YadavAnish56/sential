@@ -437,7 +437,7 @@ describe('Phase 24B — Tripartite C2 Operational Workflows & Specifications', (
     await waitFor(() => {
       expect(screen.getByTestId('archive-filter-deck')).toBeInTheDocument();
       expect(screen.getByTestId('archive-table')).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /EXPORT AUDIT LOG \(CSV\)/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Export CSV/i })).toBeInTheDocument();
     });
   });
 
@@ -451,14 +451,14 @@ describe('Phase 24B — Tripartite C2 Operational Workflows & Specifications', (
     });
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /EXPORT AUDIT LOG \(CSV\)/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Export CSV/i })).toBeInTheDocument();
     });
 
     // Mock URL and createElement for link download
     const createObjectURLSpy = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:mock-url');
     const revokeObjectURLSpy = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
 
-    const exportBtn = screen.getByRole('button', { name: /EXPORT AUDIT LOG \(CSV\)/i });
+    const exportBtn = screen.getByRole('button', { name: /Export CSV/i });
     act(() => {
       fireEvent.click(exportBtn);
     });

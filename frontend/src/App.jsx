@@ -21,6 +21,11 @@ export default function App() {
   const [pipelinesStatus, setPipelinesStatus] = useState({});
   const [selectedPlate, setSelectedPlate] = useState('');
   const [investigationRoute, setInvestigationRoute] = useState([]);
+  // An investigation is only "running" once a plate has actually been searched.
+  // Until then the investigator sees no camera feed, so nothing on screen
+  // implies a sighting that was never looked up.
+  const [investigationActive, setInvestigationActive] = useState(false);
+  const [investigationCameraId, setInvestigationCameraId] = useState(null);
   const [alertsCount, setAlertsCount] = useState(0);
 
   // Modal states
@@ -117,6 +122,19 @@ export default function App() {
     setSelectedCameraId(id);
   };
 
+  // Investigation keeps its own camera choice. The surveillance wall defaults to
+  // the first camera on load, and inheriting that made a feed appear in
+  // Investigation before the investigator had chosen anything.
+  const handleSelectInvestigationCamera = useCallback((id) => {
+    setInvestigationCameraId(id);
+    setSelectedCameraId(id);
+  }, []);
+
+  const handleInvestigationSearchState = useCallback((active) => {
+    setInvestigationActive(active);
+    if (!active) setInvestigationCameraId(null);
+  }, []);
+
   const handlePlateSelect = (plate) => {
     setSelectedPlate(plate);
     setMode('investigation');
@@ -141,6 +159,9 @@ export default function App() {
   };
 
   const selectedCamera = cameras.find((c) => c.id === selectedCameraId) || cameras[0] || null;
+  const investigationCamera = investigationCameraId != null
+    ? cameras.find((c) => c.id === investigationCameraId) || null
+    : null;
   const selectedPipelineStatus = selectedCamera ? pipelinesStatus[selectedCamera.camera_code] : null;
 
   const onlineCount = cameras.filter((c) => c.status === 'online').length;
@@ -367,23 +388,24 @@ export default function App() {
             <section className="right-cctv-column investigation-stage-column">
               <InvestigationWorkspace
                 cameras={cameras}
-                selectedCameraId={selectedCameraId}
-                onSelectCamera={handleSelectCamera}
+                selectedCameraId={investigationCameraId}
+                onSelectCamera={handleSelectInvestigationCamera}
                 pipelinesStatus={pipelinesStatus}
                 onInvestigationPathChange={setInvestigationRoute}
                 onRefreshPipelines={pollPipelineStatus}
                 initialPlate={selectedPlate}
+                onSearchStateChange={handleInvestigationSearchState}
               />
 
-              {/* Checkpoint Focus Monitor when a camera is selected */}
-              {selectedCamera && (
+              {/* Only after a search has run and a checkpoint has been picked */}
+              {investigationActive && investigationCameraId != null && investigationCamera && (
                 <div className="checkpoint-monitor-dock">
                   <div className="section-header">
-                    <span className="section-title">CHECKPOINT SURVEILLANCE STAGE • {selectedCamera.camera_code}</span>
-                    <span className="meta-hint">{selectedCamera.name}</span>
+                    <span className="section-title">Checkpoint • {investigationCamera.camera_code}</span>
+                    <span className="meta-hint">{investigationCamera.name}</span>
                   </div>
                   <SelectedCameraPanel
-                    camera={selectedCamera}
+                    camera={investigationCamera}
                     pipelineStatus={selectedPipelineStatus}
                     onStartPipeline={handleStartPipeline}
                     onStopPipeline={handleStopPipeline}
