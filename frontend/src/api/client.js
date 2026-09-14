@@ -55,8 +55,8 @@ export async function fetchClient(endpoint, options = {}) {
     if (!contentType || contentType.includes('application/json')) {
       try {
         return await response.json();
-      } catch (_) {
-        throw new Error('Invalid API response: Server returned malformed JSON');
+      } catch (cause) {
+        throw new Error('Invalid API response: Server returned malformed JSON', { cause });
       }
     }
 
@@ -64,7 +64,7 @@ export async function fetchClient(endpoint, options = {}) {
     throw new Error(`Invalid API response: Expected JSON but received ${contentType || 'non-JSON content'}`);
   } catch (error) {
     if (error instanceof TypeError && error.message === 'Failed to fetch') {
-      throw new Error('Network failure: Unable to connect to the backend API.');
+      throw new Error('Network failure: Unable to connect to the backend API.', { cause: error });
     }
     throw error;
   }

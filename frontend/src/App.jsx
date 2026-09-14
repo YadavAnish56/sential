@@ -26,6 +26,9 @@ export default function App() {
   // implies a sighting that was never looked up.
   const [investigationActive, setInvestigationActive] = useState(false);
   const [investigationCameraId, setInvestigationCameraId] = useState(null);
+  // Which stop on the route the investigator has pinned, shared by the
+  // sightings list and the map so the two stay in step.
+  const [selectedSightingId, setSelectedSightingId] = useState(null);
   const [alertsCount, setAlertsCount] = useState(0);
 
   // Modal states
@@ -35,6 +38,7 @@ export default function App() {
   const camerasRef = useRef([]);
   const retryCountRef = useRef(0);
   const retryTimerRef = useRef(null);
+  const loadCamerasRef = useRef(null);
 
   // Fetch camera catalog with bounded retry (max 10 attempts with backoff)
   const loadCameras = useCallback(async () => {
@@ -69,7 +73,7 @@ export default function App() {
           const delay = Math.min(retryCountRef.current * 1000, 5000);
           if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
           retryTimerRef.current = setTimeout(() => {
-            loadCameras();
+            if (loadCamerasRef.current) loadCamerasRef.current();
           }, delay);
         } else {
           setCameraError('Camera service temporarily unavailable. Backend unreachable after multiple attempts.');
@@ -78,6 +82,12 @@ export default function App() {
       return false;
     }
   }, []);
+
+  // Kept in a ref so the bounded retry above can call back into the current
+  // loadCameras without referencing it before it is initialised.
+  useEffect(() => {
+    loadCamerasRef.current = loadCameras;
+  }, [loadCameras]);
 
   // Poll pipelines status
   const pollPipelineStatus = useCallback(async () => {
@@ -132,7 +142,14 @@ export default function App() {
 
   const handleInvestigationSearchState = useCallback((active) => {
     setInvestigationActive(active);
-    if (!active) setInvestigationCameraId(null);
+    if (!active) {
+      setInvestigationCameraId(null);
+      setSelectedSightingId(null);
+    }
+  }, []);
+
+  const handleSelectSighting = useCallback((sightingId) => {
+    setSelectedSightingId(sightingId);
   }, []);
 
   const handlePlateSelect = (plate) => {
@@ -379,6 +396,8 @@ export default function App() {
                   selectedCameraId={selectedCameraId}
                   onSelectCamera={handleSelectCamera}
                   investigationPath={investigationRoute.length > 0 ? investigationRoute : null}
+                  selectedSightingId={selectedSightingId}
+                  onSelectSighting={handleSelectSighting}
                   height="100%"
                 />
               </div>
@@ -391,10 +410,15 @@ export default function App() {
                 selectedCameraId={investigationCameraId}
                 onSelectCamera={handleSelectInvestigationCamera}
                 pipelinesStatus={pipelinesStatus}
-                onInvestigationPathChange={setInvestigationRoute}
+                onInvestigationPathChange={(route) => {
+                  setInvestigationRoute(route);
+                  setSelectedSightingId(null);
+                }}
                 onRefreshPipelines={pollPipelineStatus}
                 initialPlate={selectedPlate}
                 onSearchStateChange={handleInvestigationSearchState}
+                selectedSightingId={selectedSightingId}
+                onSelectSighting={handleSelectSighting}
               />
 
               {/* Only after a search has run and a checkpoint has been picked */}

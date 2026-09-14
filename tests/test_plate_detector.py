@@ -9,16 +9,34 @@ Validates:
 - Confidence threshold filtering
 """
 
+import os
+
 import numpy as np
 import pytest
 
 from ai_engine.anpr.plate_detector import PlateDetector, DetectedPlate
+from ai_engine.config import resolve_model_path
+
+
+PLATE_WEIGHTS = "models/license_plate_detector.pt"
+
+# The weights are gitignored, so they are absent on a fresh clone. Tests that
+# need a loaded model skip with that reason rather than failing, which keeps a
+# red suite meaningful.
+requires_plate_weights = pytest.mark.skipif(
+    not os.path.isfile(resolve_model_path(PLATE_WEIGHTS)),
+    reason=(
+        f"{PLATE_WEIGHTS} is not present on this machine. Plate recognition "
+        "cannot run without it, so no sighting will ever be recorded."
+    ),
+)
 
 
 class TestPlateDetector:
 
+    @requires_plate_weights
     def test_model_loading_and_ready(self):
-        detector = PlateDetector(model_path="models/license_plate_detector.pt")
+        detector = PlateDetector(model_path=PLATE_WEIGHTS)
         assert detector.is_ready is True
         assert detector.device in ["cuda", "cpu"]
 

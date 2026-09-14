@@ -2772,3 +2772,9 @@ body {
   color: #fde68a;
   border-color: #b45309;
 }
+
+/* The stop an investigator has pinned, kept in step with its map marker. */
+.sighting-row.pinned-sighting {
+  border-left: 3px solid #DC2626;
+  background: rgba(220, 38, 38, 0.06);
+}

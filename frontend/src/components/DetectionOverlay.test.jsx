@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, screen, cleanup } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import DetectionOverlay from './DetectionOverlay';
 
 // jsdom reports every element as 0x0 and never decodes video, so the rendered

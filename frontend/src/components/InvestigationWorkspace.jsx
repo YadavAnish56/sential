@@ -12,6 +12,8 @@ export default function InvestigationWorkspace({
   onRefreshPipelines = null,
   initialPlate = '',
   onSearchStateChange = null,
+  selectedSightingId = null,
+  onSelectSighting = null,
 }) {
   const [targetPlate, setTargetPlate] = useState(initialPlate || '');
   const [timeWindow, setTimeWindow] = useState('all'); // '1h' | '2h' | '6h' | '24h' | 'custom' | 'all'
@@ -497,7 +499,12 @@ export default function InvestigationWorkspace({
         {!isLoading && filteredSightings.length > 0 && (
           <div className="sightings-timeline-list">
             {filteredSightings.map((sighting, idx) => {
+              const sightingId = sighting.event_id ?? sighting.id ?? idx + 1;
               const isSelected = sighting.camera_id === selectedCameraId;
+              // Selecting a row highlights that exact stop on the map, which is
+              // not the same as focusing the camera: one plate can pass the
+              // same camera more than once.
+              const isPinned = selectedSightingId != null && sightingId === selectedSightingId;
               const hasGps = sighting.latitude != null && sighting.longitude != null;
               const ptsVal = sighting.pts ?? sighting.pts_ms ?? null;
               const makeVal = sighting.make ? String(sighting.make).toUpperCase() : 'NOT AVAILABLE';
@@ -507,8 +514,13 @@ export default function InvestigationWorkspace({
               return (
                 <div
                   key={sighting.id || sighting.event_id || idx}
-                  className={`sighting-row ${isSelected ? 'selected-checkpoint' : ''}`}
-                  onClick={() => onSelectCamera && onSelectCamera(sighting.camera_id)}
+                  className={`sighting-row ${isSelected ? 'selected-checkpoint' : ''} ${isPinned ? 'pinned-sighting' : ''}`}
+                  data-testid={`sighting-row-${sightingId}`}
+                  data-pinned={isPinned ? 'true' : 'false'}
+                  onClick={() => {
+                    if (onSelectSighting) onSelectSighting(isPinned ? null : sightingId);
+                    if (onSelectCamera) onSelectCamera(sighting.camera_id);
+                  }}
                 >
                   <div className="sighting-idx">#{idx + 1}</div>
 

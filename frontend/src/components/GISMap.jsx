@@ -62,14 +62,19 @@ function getCameraMarkerIcon(isSelected, isOnline, code) {
 }
 
 // Numbered investigation route checkpoint marker icon
-function getCheckpointMarkerIcon(index) {
+function getCheckpointMarkerIcon(index, isSelected = false) {
   if (typeof L.divIcon === 'function') {
+    // The selected stop is drawn larger and in the alert colour so an
+    // investigator can pick their chosen sighting out of a long route.
+    const size = isSelected ? 30 : 22;
+    const background = isSelected ? '#DC2626' : '#2563EB';
+    const ring = isSelected ? '0 0 0 3px rgba(220,38,38,0.35), ' : '';
     return L.divIcon({
-      className: 'investigation-checkpoint-marker',
-      html: `<div style="background:#2563EB;border:2px solid #FFFFFF;box-shadow:0 2px 5px rgba(0,0,0,0.25);width:22px;height:22px;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#FFFFFF;font-size:10px;font-weight:800;font-family:sans-serif;">${index}</div>`,
-      iconSize: [22, 22],
-      iconAnchor: [11, 11],
-      popupAnchor: [0, -11],
+      className: `investigation-checkpoint-marker${isSelected ? ' selected' : ''}`,
+      html: `<div style="background:${background};border:2px solid #FFFFFF;box-shadow:${ring}0 2px 5px rgba(0,0,0,0.25);width:${size}px;height:${size}px;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#FFFFFF;font-size:${isSelected ? 12 : 10}px;font-weight:800;font-family:sans-serif;">${index}</div>`,
+      iconSize: [size, size],
+      iconAnchor: [size / 2, size / 2],
+      popupAnchor: [0, -size / 2],
     });
   }
   return undefined;
@@ -81,6 +86,8 @@ export default function GISMap({
   selectedCameraId = null,
   onSelectCamera = null,
   investigationPath = null,
+  selectedSightingId = null,
+  onSelectSighting = null,
   height = '100%',
 }) {
   const [cameras, setCameras] = useState([]);
@@ -268,8 +275,9 @@ export default function GISMap({
 
         {/* Investigation Checkpoint Waypoints */}
         {normalizedRoutePoints.map((pt) => {
-          const cpIcon = getCheckpointMarkerIcon(pt.index);
-          const hasSightingData = pt.camera_code || pt.camera_name || pt.timestamp;
+          const sightingId = pt.event_id ?? pt.index;
+          const isSelected = selectedSightingId != null && sightingId === selectedSightingId;
+          const cpIcon = getCheckpointMarkerIcon(pt.index, isSelected);
 
           return (
             <Marker
@@ -277,6 +285,12 @@ export default function GISMap({
               position={[pt.latitude, pt.longitude]}
               {...(cpIcon ? { icon: cpIcon } : {})}
               data-testid={`checkpoint-marker-${pt.index}`}
+              data-selected={isSelected ? 'true' : 'false'}
+              eventHandlers={
+                onSelectSighting
+                  ? { click: () => onSelectSighting(isSelected ? null : sightingId) }
+                  : undefined
+              }
             >
               <Popup>
                 <div className="checkpoint-popup" style={{ color: '#172B4D', minWidth: '180px', fontSize: '0.85rem' }}>

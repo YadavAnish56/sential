@@ -41,8 +41,8 @@ const LivePreview = ({
     }
 
     const containerAspect = containerW / containerH;
-    let renderedW = containerW;
-    let renderedH = containerH;
+    let renderedW;
+    let renderedH;
 
     if (videoAspect > containerAspect) {
       // Letterboxed on top/bottom

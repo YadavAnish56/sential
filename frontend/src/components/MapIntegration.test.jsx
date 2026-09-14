@@ -1,19 +1,44 @@
 import React from 'react';
 import { render, screen, waitFor, fireEvent, act, cleanup } from '@testing-library/react';
 import { vi } from 'vitest';
-import App from '../App';
-import { analyticsService } from '../api/analyticsService';
+import GISMap from './GISMap';
+import InvestigationWorkspace from './InvestigationWorkspace';
 import { cameraService } from '../api/cameraService';
-import { alertService } from '../api/alertService';
+import { analyticsService } from '../api/analyticsService';
 
-// Leaflet is stubbed so the operator view can be asserted under jsdom.
+/**
+ * Keeping the sightings list and the route map in step.
+ *
+ * Picking a stop in the list highlights that stop on the map and the other way
+ * round. A plate can pass the same camera more than once, so a stop is
+ * identified by its event, not by its camera.
+ */
+
+vi.mock('../api/cameraService', () => ({
+  cameraService: {
+    getCamerasMap: vi.fn(),
+    getCameras: vi.fn(),
+    getPipelinesStatus: vi.fn(),
+    startPipeline: vi.fn(),
+    stopPipeline: vi.fn(),
+  },
+}));
+
+vi.mock('../api/analyticsService', () => ({
+  analyticsService: {
+    getVehicleTimeline: vi.fn(),
+  },
+}));
+
+// jsdom cannot run leaflet, so the map primitives are stubbed. Marker exposes
+// its click handler and data attributes so selection can be asserted.
 vi.mock('react-leaflet', () => ({
   MapContainer: ({ children }) => <div data-testid="map-container">{children}</div>,
   TileLayer: () => <div data-testid="tile-layer" />,
-  Marker: ({ children, position, icon, eventHandlers }) => (
+  Marker: ({ children, position, icon, eventHandlers, ...rest }) => (
     <div
-      data-testid="marker"
-      data-position={JSON.stringify(position)}
+      data-testid={rest['data-testid'] || `marker-${position[0]}-${position[1]}`}
+      data-selected={rest['data-selected']}
       data-icon-html={icon?.options?.html || ''}
       onClick={() => eventHandlers?.click && eventHandlers.click()}
     >
@@ -24,237 +49,165 @@ vi.mock('react-leaflet', () => ({
   Polyline: ({ positions }) => (
     <div data-testid="polyline" data-positions={JSON.stringify(positions)} />
   ),
-  useMap: () => ({ setView: vi.fn(), fitBounds: vi.fn(), getZoom: () => 7 }),
+  useMap: () => ({ setView: vi.fn(), fitBounds: vi.fn(), getZoom: () => 12 }),
 }));
 
-vi.mock('../api/analyticsService', () => ({
-  analyticsService: {
-    getRecentEvents: vi.fn(),
-    getVehicleTimeline: vi.fn(),
-    getVehicles: vi.fn(),
-    searchVehicles: vi.fn(),
-  },
-}));
+const cameras = [
+  { id: 1, camera_code: 'CAM-001', name: 'Surat Highway', latitude: 21.1702, longitude: 72.8311, status: 'online' },
+  { id: 2, camera_code: 'CAM-002', name: 'Bypass Junction', latitude: 21.2100, longitude: 72.8600, status: 'online' },
+];
 
-vi.mock('../api/cameraService', () => ({
-  cameraService: {
-    getCameras: vi.fn(),
-    getPipelinesStatus: vi.fn(),
-    startPipeline: vi.fn(),
-    stopPipeline: vi.fn(),
-    getPreviewUrl: vi.fn(),
-  },
-}));
+// The same camera appears twice: the vehicle passed it again later.
+const route = [
+  { event_id: 501, index: 1, camera_id: 1, camera_code: 'CAM-001', camera_name: 'Surat Highway', latitude: 21.1702, longitude: 72.8311, timestamp: '2026-09-10T09:00:00Z' },
+  { event_id: 502, index: 2, camera_id: 2, camera_code: 'CAM-002', camera_name: 'Bypass Junction', latitude: 21.2100, longitude: 72.8600, timestamp: '2026-09-10T09:20:00Z' },
+  { event_id: 503, index: 3, camera_id: 1, camera_code: 'CAM-001', camera_name: 'Surat Highway', latitude: 21.1702, longitude: 72.8311, timestamp: '2026-09-10T10:05:00Z' },
+];
 
-vi.mock('../api/alertService', () => ({
-  alertService: {
-    getAlerts: vi.fn(),
-    acknowledgeAlert: vi.fn(),
-  },
-}));
+beforeEach(() => {
+  vi.clearAllMocks();
+  cameraService.getCamerasMap.mockResolvedValue(cameras);
+  cameraService.getCameras.mockResolvedValue(cameras);
+  cameraService.getPipelinesStatus.mockResolvedValue({});
+  analyticsService.getVehicleTimeline.mockResolvedValue({
+    plate_number: 'GJ05AB1234',
+    total_detections: route.length,
+    timeline: route,
+  });
+});
 
-const cameras = {
-  cameras: [
-    {
-      id: 101,
-      camera_code: 'CAM-A',
-      name: 'Adajan Gate',
-      location: 'Adajan',
-      latitude: 21.1959,
-      longitude: 72.7933,
-      status: 'active',
-    },
-    {
-      id: 102,
-      camera_code: 'CAM-B',
-      name: 'Athwa Gate',
-      location: 'Athwa',
-      latitude: 21.1702,
-      longitude: 72.8311,
-      status: 'active',
-    },
-  ],
-  total: 2,
-};
+afterEach(cleanup);
 
-const events = {
-  events: [
-    {
-      id: 1,
-      camera_id: 101,
-      vehicle_id: 55,
-      event_type: 'anpr_detection',
-      object_type: 'vehicle',
-      confidence: 0.95,
-      timestamp: '2026-09-10T09:00:00Z',
-    },
-  ],
-  total: 1,
-};
-
-const vehicles = [{ id: 55, plate_number: 'GJ05AB1234' }];
-
-const timelineResponse = {
-  plate_number: 'GJ05AB1234',
-  vehicle: { id: 55, plate_number: 'GJ05AB1234' },
-  timeline: [
-    {
-      event_id: 11,
-      camera_id: 101,
-      camera_code: 'CAM-A',
-      camera_name: 'Adajan Gate',
-      location: 'Adajan',
-      latitude: 21.1959,
-      longitude: 72.7933,
-      event_type: 'anpr_detection',
-      confidence: 0.95,
-      timestamp: '2026-09-10T09:00:00Z',
-    },
-    {
-      event_id: 12,
-      camera_id: 102,
-      camera_code: 'CAM-B',
-      camera_name: 'Athwa Gate',
-      location: 'Athwa',
-      latitude: 21.1702,
-      longitude: 72.8311,
-      event_type: 'anpr_detection',
-      confidence: 0.9,
-      timestamp: '2026-09-10T09:12:00Z',
-    },
-  ],
-  total_detections: 2,
-};
-
-const hopMarkers = () =>
-  screen
-    .queryAllByTestId('marker')
-    .filter((m) => m.getAttribute('data-icon-html').includes('sentinel-hop'));
-
-const selectPlate = async () => {
-  const plateBtn = await screen.findByRole('button', { name: 'Plate: GJ05AB1234' });
+async function renderMap(props = {}) {
   await act(async () => {
-    fireEvent.click(plateBtn);
+    render(<GISMap investigationPath={route} {...props} />);
   });
-};
+  await waitFor(() => expect(screen.getByTestId('map-container')).toBeInTheDocument());
+}
 
-describe('Phase 13 map integration', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    cameraService.getCameras.mockResolvedValue(cameras);
-    cameraService.getPipelinesStatus.mockResolvedValue({});
-    analyticsService.getRecentEvents.mockResolvedValue(events);
-    analyticsService.getVehicles.mockResolvedValue(vehicles);
-    analyticsService.getVehicleTimeline.mockResolvedValue(timelineResponse);
-    alertService.getAlerts.mockResolvedValue({ alerts: [], total: 0 });
+describe('route map', () => {
+  it('plots one checkpoint per stop, including a repeat visit', async () => {
+    await renderMap();
+    expect(screen.getByTestId('checkpoint-marker-1')).toBeInTheDocument();
+    expect(screen.getByTestId('checkpoint-marker-2')).toBeInTheDocument();
+    expect(screen.getByTestId('checkpoint-marker-3')).toBeInTheDocument();
   });
 
-  afterEach(() => {
-    cleanup();
+  it('draws the path through every stop', async () => {
+    await renderMap();
+    const positions = JSON.parse(screen.getByTestId('polyline').dataset.positions);
+    expect(positions).toHaveLength(3);
   });
 
-  test('I1: cameras reach the map on load', async () => {
-    render(<App />);
+  it('marks only the pinned stop as selected', async () => {
+    await renderMap({ selectedSightingId: 502 });
+    expect(screen.getByTestId('checkpoint-marker-2').dataset.selected).toBe('true');
+    expect(screen.getByTestId('checkpoint-marker-1').dataset.selected).toBe('false');
+    expect(screen.getByTestId('checkpoint-marker-3').dataset.selected).toBe('false');
+  });
+
+  it('distinguishes two visits to one camera', async () => {
+    // Stops 1 and 3 share a camera and coordinates; pinning one must not
+    // light up the other.
+    await renderMap({ selectedSightingId: 503 });
+    expect(screen.getByTestId('checkpoint-marker-3').dataset.selected).toBe('true');
+    expect(screen.getByTestId('checkpoint-marker-1').dataset.selected).toBe('false');
+  });
+
+  it('reports the stop that was clicked', async () => {
+    const onSelectSighting = vi.fn();
+    await renderMap({ onSelectSighting });
+
+    fireEvent.click(screen.getByTestId('checkpoint-marker-2'));
+    expect(onSelectSighting).toHaveBeenCalledWith(502);
+  });
+
+  it('clicking the pinned stop again clears it', async () => {
+    const onSelectSighting = vi.fn();
+    await renderMap({ selectedSightingId: 502, onSelectSighting });
+
+    fireEvent.click(screen.getByTestId('checkpoint-marker-2'));
+    expect(onSelectSighting).toHaveBeenCalledWith(null);
+  });
+
+  it('stays usable when the route has no coordinates', async () => {
+    const noGps = route.map((p) => ({ ...p, latitude: null, longitude: null }));
+    await act(async () => {
+      render(<GISMap investigationPath={noGps} />);
+    });
+    await waitFor(() => expect(screen.getByTestId('map-container')).toBeInTheDocument());
+    expect(screen.queryByTestId('checkpoint-marker-1')).not.toBeInTheDocument();
+  });
+});
+
+describe('sightings list', () => {
+  async function search() {
+    await act(async () => {
+      render(
+        <InvestigationWorkspace
+          cameras={cameras}
+          initialPlate="GJ05AB1234"
+          selectedSightingId={null}
+          onSelectSighting={vi.fn()}
+        />,
+      );
+    });
+    const button = await screen.findByRole('button', { name: /SEARCH EXISTING RECORDS/i });
+    await act(async () => {
+      fireEvent.click(button);
+    });
+    await waitFor(() => expect(analyticsService.getVehicleTimeline).toHaveBeenCalled());
+  }
+
+  it('lists every recorded sighting', async () => {
+    await search();
+    await waitFor(() => {
+      expect(screen.getByTestId('sighting-row-501')).toBeInTheDocument();
+      expect(screen.getByTestId('sighting-row-502')).toBeInTheDocument();
+      expect(screen.getByTestId('sighting-row-503')).toBeInTheDocument();
+    });
+  });
+
+  it('reports the sighting the investigator picked', async () => {
+    const onSelectSighting = vi.fn();
+    await act(async () => {
+      render(
+        <InvestigationWorkspace
+          cameras={cameras}
+          initialPlate="GJ05AB1234"
+          onSelectSighting={onSelectSighting}
+        />,
+      );
+    });
+    await act(async () => {
+      fireEvent.click(await screen.findByRole('button', { name: /SEARCH EXISTING RECORDS/i }));
+    });
+    const row = await screen.findByTestId('sighting-row-502');
+
+    await act(async () => {
+      fireEvent.click(row);
+    });
+    expect(onSelectSighting).toHaveBeenCalledWith(502);
+  });
+
+  it('shows which row is pinned', async () => {
+    await act(async () => {
+      render(
+        <InvestigationWorkspace
+          cameras={cameras}
+          initialPlate="GJ05AB1234"
+          selectedSightingId={502}
+          onSelectSighting={vi.fn()}
+        />,
+      );
+    });
+    await act(async () => {
+      fireEvent.click(await screen.findByRole('button', { name: /SEARCH EXISTING RECORDS/i }));
+    });
 
     await waitFor(() => {
-      const cameraPins = screen
-        .queryAllByTestId('marker')
-        .filter((m) => m.getAttribute('data-icon-html').includes('sentinel-camera-pin'));
-      expect(cameraPins).toHaveLength(2);
+      expect(screen.getByTestId('sighting-row-502').dataset.pinned).toBe('true');
+      expect(screen.getByTestId('sighting-row-501').dataset.pinned).toBe('false');
     });
-    expect(screen.getByText('2 of 2 cameras mapped')).toBeInTheDocument();
-  });
-
-  test('I2: selecting a plate plots its cross-camera movement', async () => {
-    render(<App />);
-    await selectPlate();
-
-    await waitFor(() => expect(screen.getByTestId('polyline')).toBeInTheDocument());
-    expect(JSON.parse(screen.getByTestId('polyline').getAttribute('data-positions'))).toEqual([
-      [21.1959, 72.7933],
-      [21.1702, 72.8311],
-    ]);
-    expect(hopMarkers()).toHaveLength(2);
-  });
-
-  test('I3: the timeline is fetched once and shared with the map', async () => {
-    render(<App />);
-    await selectPlate();
-
-    await waitFor(() => expect(screen.getByTestId('polyline')).toBeInTheDocument());
-    expect(analyticsService.getVehicleTimeline).toHaveBeenCalledTimes(1);
-    expect(analyticsService.getVehicleTimeline).toHaveBeenCalledWith('GJ05AB1234');
-  });
-
-  test('I4: clicking a timeline entry highlights that stop on the map', async () => {
-    const { container } = render(<App />);
-    await selectPlate();
-
-    await waitFor(() => expect(hopMarkers()).toHaveLength(2));
-    expect(hopMarkers()[1].getAttribute('data-icon-html')).not.toContain('sentinel-hop-selected');
-
-    const entries = container.querySelector('.timeline-entries');
-    await act(async () => {
-      fireEvent.click(entries.children[1]);
-    });
-
-    await waitFor(() =>
-      expect(hopMarkers()[1].getAttribute('data-icon-html')).toContain('sentinel-hop-selected')
-    );
-  });
-
-  test('I5: clicking a map stop selects it, and clicking again clears it', async () => {
-    render(<App />);
-    await selectPlate();
-
-    await waitFor(() => expect(hopMarkers()).toHaveLength(2));
-
-    await act(async () => {
-      fireEvent.click(hopMarkers()[0]);
-    });
-    await waitFor(() =>
-      expect(hopMarkers()[0].getAttribute('data-icon-html')).toContain('sentinel-hop-selected')
-    );
-
-    await act(async () => {
-      fireEvent.click(hopMarkers()[0]);
-    });
-    await waitFor(() =>
-      expect(hopMarkers()[0].getAttribute('data-icon-html')).not.toContain('sentinel-hop-selected')
-    );
-  });
-
-  test('I6: closing the timeline clears the path from the map', async () => {
-    render(<App />);
-    await selectPlate();
-
-    await waitFor(() => expect(hopMarkers()).toHaveLength(2));
-
-    await act(async () => {
-      fireEvent.click(screen.getByLabelText('Close timeline'));
-    });
-
-    await waitFor(() => expect(hopMarkers()).toHaveLength(0));
-    expect(screen.queryByTestId('polyline')).not.toBeInTheDocument();
-  });
-
-  test('I7: a timeline with no coordinates leaves the map usable', async () => {
-    analyticsService.getVehicleTimeline.mockResolvedValue({
-      ...timelineResponse,
-      timeline: timelineResponse.timeline.map((entry) => ({
-        ...entry,
-        latitude: null,
-        longitude: null,
-      })),
-    });
-
-    render(<App />);
-    await selectPlate();
-
-    await waitFor(() =>
-      expect(screen.getByText('No mapped detections for this vehicle.')).toBeInTheDocument()
-    );
-    expect(hopMarkers()).toHaveLength(0);
-    expect(screen.getByTestId('map-container')).toBeInTheDocument();
   });
 });

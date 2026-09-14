@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 /**
  * Draws the AI's bounding boxes on top of the live video.
@@ -83,14 +83,12 @@ export default function DetectionOverlay({
   visible = true,
 }) {
   const rect = useRenderedVideoRect(videoRef, containerRef);
-  const targetRef = useRef(normalisePlate(targetPlate));
-  targetRef.current = normalisePlate(targetPlate);
+  // Derived straight from the prop: a ref here would only risk going stale.
+  const target = normalisePlate(targetPlate);
 
   if (!visible || !rect || !Array.isArray(boxes) || boxes.length === 0) {
     return null;
   }
-
-  const target = targetRef.current;
 
   return (
     <div
