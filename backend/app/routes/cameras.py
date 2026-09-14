@@ -38,18 +38,28 @@ from app.services.catalog_sync import CameraCatalogSyncService
 
 router = APIRouter(prefix="/cameras", tags=["Cameras"])
 
+# A retired camera is one that was removed while its sightings were kept. It
+# stays in the database so that evidence still resolves, but it is not part of
+# the live estate and must not appear on the map or in the default listing.
+RETIRED_STATUS = "retired"
+
 
 @router.get("", response_model=CameraListResponse)
 def list_cameras(
     skip: int = Query(0, ge=0, description="Number of records to skip"),
     limit: int = Query(50, ge=1, le=200, description="Max records to return"),
     status: str | None = Query(None, description="Filter by camera status"),
+    include_retired: bool = Query(
+        False, description="Include cameras that were retired rather than deleted"
+    ),
     db: Session = Depends(get_db),
 ):
     """List all cameras with optional filtering."""
     query = db.query(Camera)
     if status:
         query = query.filter(Camera.status == status)
+    elif not include_retired:
+        query = query.filter(Camera.status != RETIRED_STATUS)
     total = query.count()
     cameras = query.order_by(Camera.id).offset(skip).limit(limit).all()
     return CameraListResponse(
@@ -62,6 +72,9 @@ def list_cameras(
 def get_cameras_map(
     only_mapped: bool = Query(False, description="Filter to only return cameras with valid coordinates"),
     status: str | None = Query(None, description="Filter by camera status"),
+    include_retired: bool = Query(
+        False, description="Include cameras that were retired rather than deleted"
+    ),
     db: Session = Depends(get_db),
 ):
     """
@@ -72,6 +85,8 @@ def get_cameras_map(
     query = db.query(Camera)
     if status:
         query = query.filter(Camera.status == status)
+    elif not include_retired:
+        query = query.filter(Camera.status != RETIRED_STATUS)
     cameras = query.order_by(Camera.id).all()
 
     markers: list[CameraMapMarker] = []
@@ -421,7 +436,7 @@ def delete_camera(
 
     if referenced:
         # Retire rather than delete: the evidence rows still point at this row.
-        camera.status = "retired"
+        camera.status = RETIRED_STATUS
         db.commit()
         return {
             "message": f"Camera {code} retired. Its {referenced} recorded item(s) were kept.",

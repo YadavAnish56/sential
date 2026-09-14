@@ -46,7 +46,9 @@ services:
       - "8000:8000"
     volumes:
       - ./models:/app/models:ro
-      - C:/Users/Mohit/.EasyOCR/model:/root/.EasyOCR/model:ro
+      # EasyOCR weights live in the developer's home directory and differ per
+      # machine, so the host path comes from EASYOCR_MODEL_DIR (see .env.example).
+      - ${EASYOCR_MODEL_DIR:-./models/easyocr}:/root/.EasyOCR/model:ro
     depends_on:
       - postgres
       - mediamtx
