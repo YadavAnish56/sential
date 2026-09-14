@@ -152,6 +152,15 @@ export default function App() {
     setSelectedSightingId(sightingId);
   }, []);
 
+  // InvestigationWorkspace lists this in an effect's dependencies, so it has to
+  // keep a stable identity. An inline arrow here re-ran that effect on every
+  // render, which set state, which rendered again: the page locked up.
+  const handleInvestigationPathChange = useCallback((route) => {
+    setInvestigationRoute(route);
+    // A fresh route invalidates any pinned stop from the previous one.
+    setSelectedSightingId(null);
+  }, []);
+
   const handlePlateSelect = (plate) => {
     setSelectedPlate(plate);
     setMode('investigation');
@@ -410,10 +419,7 @@ export default function App() {
                 selectedCameraId={investigationCameraId}
                 onSelectCamera={handleSelectInvestigationCamera}
                 pipelinesStatus={pipelinesStatus}
-                onInvestigationPathChange={(route) => {
-                  setInvestigationRoute(route);
-                  setSelectedSightingId(null);
-                }}
+                onInvestigationPathChange={handleInvestigationPathChange}
                 onRefreshPipelines={pollPipelineStatus}
                 initialPlate={selectedPlate}
                 onSearchStateChange={handleInvestigationSearchState}
