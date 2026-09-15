@@ -10,7 +10,8 @@ backend/venv/
 .pytest_cache/
 
 # Model Weights (Do not commit model weights to Git)
-models/
+# NOTE: anchored to the repo root so it cannot swallow backend/app/models/ (ORM models).
+/models/
 *.pt
 *.onnx
 *.engine
@@ -29,3 +30,10 @@ models/
 *.h264
 *.h265
 postgres_data/
+
+# Local tooling binaries (MediaMTX / FFmpeg) - downloaded per machine, never committed
+.tools/
+
+# Local runtime databases
+backend/sentinel_local.db
+sentinel_local.db

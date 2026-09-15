@@ -189,19 +189,17 @@ class ANPRPersistenceService:
             )
             self.db.add(event)
 
-            # 7. Optional Watchlist Alert evaluation within the same atomic transaction
-            alert = None
-            if watchlist:
-                alert_service = AlertService(self.db)
-                alert = alert_service.check_and_create_watchlist_alert(
-                    plate_number=canonical_plate,
-                    camera_id=camera.id,
-                    vehicle_id=vehicle.id,
-                    camera_code=camera.camera_code,
-                    watchlist=watchlist,
-                    timestamp=event_timestamp,
-                    commit=False,
-                )
+            # 7. Watchlist Alert evaluation within the same atomic transaction
+            alert_service = AlertService(self.db)
+            alert = alert_service.check_and_create_watchlist_alert(
+                plate_number=canonical_plate,
+                camera_id=camera.id,
+                vehicle_id=vehicle.id,
+                camera_code=camera.camera_code,
+                watchlist=watchlist,
+                timestamp=event_timestamp,
+                commit=False,
+            )
 
             self.db.commit()
             self.db.refresh(event)

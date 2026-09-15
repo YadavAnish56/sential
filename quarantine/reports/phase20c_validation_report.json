@@ -1,0 +1,59 @@
+{
+  "status": "FULL PASS",
+  "model": {
+    "path": "models/license_plate_detector.pt",
+    "expected_sha256": "2d95861825bb4184404344c9cf809f40fd31dba785fe54e8ba5b9a3583789822",
+    "actual_sha256": "2d95861825bb4184404344c9cf809f40fd31dba785fe54e8ba5b9a3583789822",
+    "checksum_verified": true
+  },
+  "latencies_ms": {
+    "vehicle_yolo_ms": {
+      "mean": 8.09,
+      "min": 7.7,
+      "max": 8.87,
+      "std": 0.39
+    },
+    "plate_detector_ms": {
+      "mean": 7.91,
+      "min": 6.77,
+      "max": 8.31,
+      "std": 0.43
+    },
+    "easyocr_ms": {
+      "mean": 4.73,
+      "min": 4.59,
+      "max": 5.0,
+      "std": 0.16
+    },
+    "total_anpr_cascade_ms": {
+      "mean": 12.64
+    },
+    "gpu_allocated_mb": 120.95,
+    "gpu_reserved_mb": 174.0,
+    "gpu_max_allocated_mb": 142.19
+  },
+  "video": {
+    "path": "0911.mp4",
+    "total_frames": 775,
+    "fps": 30.0,
+    "processing_time_s": 70.98
+  },
+  "locked_tracks": {
+    "36": {
+      "plate": "KA02MM9091",
+      "method": "FAST_LOCK",
+      "frame": 611,
+      "pts_s": 20.37,
+      "attempts": 35,
+      "observations": 7,
+      "track_remains_eligible_to_21s": true
+    }
+  },
+  "database": {
+    "target_vehicle_found": true,
+    "vehicle_plate": "KA02MM9091",
+    "target_event_found": true,
+    "target_alert_found": true,
+    "alert_message": "Watchlist vehicle KA02MM9091 detected on camera CAM-001"
+  }
+}

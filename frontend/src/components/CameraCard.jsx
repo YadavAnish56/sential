@@ -2,8 +2,17 @@ import React, { useState } from 'react';
 import PipelineStatusBadge from './PipelineStatusBadge';
 import LivePreview from './LivePreview';
 import { cameraService } from '../api/cameraService';
+import { isTestCamera, resolveVideoState, resolveAiState } from '../utils/cameraState';
 
-export default function CameraCard({ camera, pipelineStatus, onStart, onStop }) {
+export default function CameraCard({
+  camera,
+  pipelineStatus,
+  onStart,
+  onStop,
+  isSelected = false,
+  onSelect = null,
+  compact = false,
+}) {
   const [isPending, setIsPending] = useState(false);
   const [localError, setLocalError] = useState(null);
 
@@ -12,16 +21,19 @@ export default function CameraCard({ camera, pipelineStatus, onStart, onStop }) 
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState(null);
 
-  const statusStr = pipelineStatus?.status || 'unregistered';
-  const isRunning = statusStr.toLowerCase() === 'running';
-  const isStarting = statusStr.toLowerCase() === 'starting';
-  const isStopping = statusStr.toLowerCase() === 'stopping';
+  const testCam = isTestCamera(camera);
+  const video = resolveVideoState(camera, previewError, false);
+  const ai = resolveAiState(camera, pipelineStatus);
 
-  const disableActions = isPending || isStarting || isStopping;
-  const isError = statusStr.toLowerCase() === 'error';
+  const isRunning = ai.state === 'RUNNING';
+  const isStarting = ai.state === 'STARTING';
+  const isStopping = ai.state === 'STOPPING';
+  const disableActions = isPending || isStarting || isStopping || testCam;
+  const isError = ai.state === 'ERROR';
   const pipelineError = pipelineStatus?.error_message;
 
   const handleStart = async () => {
+    if (testCam) return;
     setIsPending(true);
     setLocalError(null);
     try {
@@ -34,6 +46,7 @@ export default function CameraCard({ camera, pipelineStatus, onStart, onStop }) 
   };
 
   const handleStop = async () => {
+    if (testCam) return;
     setIsPending(true);
     setLocalError(null);
     try {
@@ -70,63 +83,115 @@ export default function CameraCard({ camera, pipelineStatus, onStart, onStop }) 
     setPreviewError(null);
   };
 
+  if (compact) {
+    const isOnline = video.state === 'LIVE';
+    let videoDisplay = `VIDEO: ${video.state}`;
+    let aiDisplay = isRunning ? 'AI ON' : (testCam ? 'AI UNAVAILABLE' : (isError ? 'AI ERR' : 'AI OFF'));
+    
+    // For test cameras
+    if (testCam) {
+      videoDisplay = 'VIDEO: OFFLINE';
+      aiDisplay = 'AI UNAVAILABLE';
+    }
+
+    return (
+      <div 
+        className={`camera-tile ${isSelected ? 'selected' : ''} ${testCam ? 'tile-test-cam' : (isOnline ? 'online' : 'offline')}`}
+        onClick={() => onSelect && onSelect(camera.id)}
+        data-testid={`camera-tile-${camera.id}`}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onSelect && onSelect(camera.id); }}
+      >
+        <div className="tile-top">
+          <span className="tile-code">
+            {camera.camera_code}
+            {testCam && <span className="tile-tag-test">TEST</span>}
+          </span>
+          <span className={`tile-dot ${isOnline ? 'dot-online' : (video.state === 'AUTH REQUIRED' ? 'dot-warning' : 'dot-offline')}`}></span>
+        </div>
+        <div className="tile-name" title={camera.name || camera.camera_code}>
+          {camera.name || `Camera ${camera.id}`}
+        </div>
+        <div className="tile-bottom">
+          <span className={`tile-status-tag ${video.colorClass}`}>
+            {videoDisplay}
+          </span>
+          <span className={`tile-ai-tag ${ai.colorClass}`}>
+            {aiDisplay}
+          </span>
+        </div>
+      </div>
+    );
+  }
+
   // Safe display for errors
   const displayError = localError || (isError ? pipelineError : null);
 
   return (
-    <div className="camera-card">
+    <div className={`camera-card ${isSelected ? 'selected-card' : ''}`}>
       <div className="camera-header">
         <div className="camera-info">
           <h3>{camera.name || 'Unnamed Camera'}</h3>
           <span className="camera-code">{camera.camera_code}</span>
-          {camera.location && <span className="camera-location">{camera.location}</span>}
+          {testCam && <span className="badge-test-cam">TEST CAMERA</span>}
         </div>
-        <PipelineStatusBadge status={statusStr} />
+        <div className="camera-badges">
+          <span className={`status-pill ${video.colorClass}`}>
+            {video.label}
+          </span>
+          <PipelineStatusBadge status={pipelineStatus?.status || 'unknown'} />
+        </div>
       </div>
 
-      <div className="camera-stats">
-        {pipelineStatus?.frames_processed !== undefined && (
-          <p>Frames Processed: {pipelineStatus.frames_processed}</p>
-        )}
+      <div className="camera-details">
+        <p><strong>Location:</strong> {camera.location || 'Unknown'}</p>
+        <p><strong>RTSP Stream:</strong> {camera.stream_url ? 'Configured' : 'Missing'}</p>
+        {camera.vendor && <p><strong>Department:</strong> {camera.vendor}</p>}
       </div>
 
       {displayError && (
-        <div className="camera-error">
-          <p>{displayError}</p>
+        <div className="error-message" role="alert">
+          {displayError}
         </div>
       )}
 
       {showPreview && (
-        <div className="camera-preview-section">
-          {previewLoading && <div className="preview-status">Fetching preview details...</div>}
-          {previewError && <div className="preview-error" style={{ color: '#ff4d4f', padding: '0.5rem 0' }}>{previewError}</div>}
-          {previewUrl && <LivePreview webrtcUrl={previewUrl} />}
+        <div className="preview-container">
+          {previewLoading && <div className="preview-loading">Connecting...</div>}
+          {previewError && <div className="preview-error">{previewError}</div>}
+          {previewUrl && !previewError && <LivePreview webrtcUrl={previewUrl} isTestMode={testCam} />}
+          <button type="button" className="btn btn-secondary btn-sm" onClick={handleStopPreview}>
+            Stop Preview
+          </button>
         </div>
       )}
 
-      <div className="camera-actions" style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
+      <div className="camera-actions">
         <button
-          className="btn btn-primary"
+          type="button"
+          className="btn btn-primary btn-sm"
           onClick={handleStart}
           disabled={disableActions || isRunning}
         >
           {isPending && !isRunning ? 'Processing...' : 'Start'}
         </button>
         <button
-          className="btn btn-danger"
+          type="button"
+          className="btn btn-danger btn-sm"
           onClick={handleStop}
-          disabled={disableActions || (!isRunning && !isError)}
+          disabled={disableActions || !isRunning}
         >
-          Stop
+          {isPending && isRunning ? 'Processing...' : 'Stop'}
         </button>
-
-        {!showPreview ? (
-          <button className="btn btn-secondary" onClick={handleViewLive}>
+        {!showPreview && (
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={handleViewLive}
+            disabled={disableActions}
+          >
             View Live
-          </button>
-        ) : (
-          <button className="btn btn-secondary" onClick={handleStopPreview}>
-            Stop Preview
           </button>
         )}
       </div>

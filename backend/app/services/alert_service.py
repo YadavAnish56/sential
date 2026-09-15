@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 from app.models.alert import Alert
 from app.models.camera import Camera
 from app.models.vehicle import Vehicle
+from app.models.watchlist import Watchlist
 
 try:
     from ai_engine.anpr.normalization import normalize_plate
@@ -81,16 +82,17 @@ class AlertService:
         commit: bool = False,
     ) -> Alert | None:
         """
-        Evaluate whether a plate matches the supplied watchlist and create an Alert if matched.
+        Evaluate whether a plate matches the supplied or database watchlist and create an Alert.
 
         Args:
             plate_number: Raw or normalized plate string (will be re-validated via normalize_plate).
             camera_id: Primary key (int) of the recording camera.
             vehicle_id: Primary key (int) of the vehicle.
             camera_code: Human-readable camera code for the alert message.
-            watchlist: Iterable of watchlist plate strings.
+            watchlist: Optional iterable of watchlist plate strings. If None, queries active
+                       entries from the database watchlists table.
             timestamp: Explicit UTC datetime for the alert (defaults to datetime.utcnow()).
-            severity: Alert severity string (defaults to "high").
+            severity: Default alert severity string (defaults to "high").
             alert_type: Classification string (defaults to "ANPR_WATCHLIST").
             commit: If True, commits the transaction immediately. If False,
                     flushes within the active transaction for outer atomic commit.
@@ -98,7 +100,7 @@ class AlertService:
         Returns:
             Created Alert model instance on match, or None if no match or invalid input.
         """
-        if not plate_number or not watchlist:
+        if not plate_number:
             return None
 
         # Strict validation: Canonical plate must be a valid Indian registration format
@@ -106,20 +108,42 @@ class AlertService:
         if not valid or not canonical_plate:
             return None
 
-        # Build canonical watchlist lookup set
-        target_watchlist = canonicalize_watchlist(watchlist)
-        if not target_watchlist or canonical_plate not in target_watchlist:
-            return None
+        alert_severity = severity
+        alert_message = None
+
+        if watchlist is not None:
+            # Explicit watchlist supplied (e.g. test overrides)
+            target_watchlist = canonicalize_watchlist(watchlist)
+            if not target_watchlist or canonical_plate not in target_watchlist:
+                return None
+            alert_message = f"Watchlist vehicle {canonical_plate} detected on camera {camera_code}"
+        else:
+            # Query active watchlist from database
+            matched_entry = (
+                self.db.query(Watchlist)
+                .filter(Watchlist.plate_number == canonical_plate, Watchlist.is_active == True)
+                .first()
+            )
+            if not matched_entry:
+                return None
+            if matched_entry.severity:
+                alert_severity = matched_entry.severity
+            if matched_entry.description:
+                alert_message = (
+                    f"Watchlist vehicle {canonical_plate} detected on camera {camera_code} "
+                    f"({matched_entry.description})"
+                )
+            else:
+                alert_message = f"Watchlist vehicle {canonical_plate} detected on camera {camera_code}"
 
         alert_time = timestamp if timestamp is not None else datetime.utcnow()
-        message = f"Watchlist vehicle {canonical_plate} detected on camera {camera_code}"
 
         alert = Alert(
             camera_id=camera_id,
             vehicle_id=vehicle_id,
             alert_type=alert_type,
-            severity=severity,
-            message=message,
+            severity=alert_severity,
+            message=alert_message,
             timestamp=alert_time,
             status="new",
         )
@@ -136,6 +160,6 @@ class AlertService:
             alert_type,
             canonical_plate,
             camera_code,
-            severity,
+            alert_severity,
         )
         return alert

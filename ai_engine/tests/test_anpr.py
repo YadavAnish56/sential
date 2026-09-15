@@ -227,6 +227,56 @@ def test_invalid_format_handling():
     assert v3 is False
 
 
+# 9b. Phase 29B: Position-aware state-code disambiguation (6 -> G when position 1 is J)
+def test_phase29b_gujarat_state_disambiguation():
+    # 1. Direct CAM-006 test case 1
+    p1, v1 = normalize_plate("6J12L4219")
+    assert p1 == "GJ12L4219"
+    assert v1 is True
+
+    # 2. Direct CAM-006 test case 2
+    p2, v2 = normalize_plate("6J32K9819")
+    assert p2 == "GJ32K9819"
+    assert v2 is True
+
+    # 2b. Case with spacing and OCR Z in numeric position
+    p2b, v2b = normalize_plate("6J3Z K 9819")
+    assert p2b == "GJ32K9819"
+    assert v2b is True
+
+    # 3. Valid existing plates remain unchanged
+    p3, v3 = normalize_plate("GJ05AB1234")
+    assert p3 == "GJ05AB1234"
+    assert v3 is True
+
+    # 4. Legitimate numeric 6s elsewhere remain unchanged
+    p4, v4 = normalize_plate("GJ06AB1234")
+    assert p4 == "GJ06AB1234"
+    assert v4 is True
+
+    p5, v5 = normalize_plate("DL01A6666")
+    assert p5 == "DL01A6666"
+    assert v5 is True
+
+    # 5. Invalid / non-Indian strings remain rejected (no hallucination)
+    # 6D does not match any Indian state code (e.g. GD is not a state code)
+    p6, v6 = normalize_plate("6D12AB1234")
+    assert p6 == "6D12AB1234"
+    assert v6 is False
+
+    # 66 does not match any Indian state code (GG is not a state code)
+    p7, v7 = normalize_plate("66AB1234")
+    assert p7 == "66AB1234"
+    assert v7 is False
+
+    # 6. No broad global OCR substitutions occur (e.g. manufacturer badges or noise)
+    p8, v8 = normalize_plate("SUZUKI")
+    assert v8 is False
+
+    p9, v9 = normalize_plate("DIESEL")
+    assert v9 is False
+
+
 # 10. Low-confidence result
 def test_low_confidence_result():
     frame = _make_synthetic_frame()

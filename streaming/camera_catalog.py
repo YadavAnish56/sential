@@ -24,6 +24,8 @@ class CameraCatalogItem:
     camera_id: str
     name: str = ""
     location: str | None = None
+    latitude: float | None = None
+    longitude: float | None = None
     codec: str | None = None
     is_live: bool = False
     rtsp_url: str | None = None
@@ -32,6 +34,7 @@ class CameraCatalogItem:
     width: int | None = None
     height: int | None = None
     fps_hint: float | None = None
+    department: str | None = None
     properties: dict[str, Any] = field(default_factory=dict)
     raw_data: dict[str, Any] = field(default_factory=dict)
 
@@ -45,14 +48,34 @@ class CameraCatalogItem:
             or data.get("camera_code")
             or data.get("stream_id")
             or ""
-        )
+        ).strip()
 
         name = str(data.get("name") or data.get("camera_name") or f"Camera {cam_id}")
-        location = data.get("location")
+        location = data.get("location_description") or data.get("location")
         codec = data.get("codec") or data.get("video_codec")
+        department = data.get("department") or data.get("vendor") or data.get("agency")
+
+        # Extract coordinates if available
+        lat_raw = data.get("latitude") if data.get("latitude") is not None else data.get("lat")
+        lon_raw = (
+            data.get("longitude")
+            if data.get("longitude") is not None
+            else (data.get("lng") if data.get("lng") is not None else data.get("lon"))
+        )
+        lat_f: float | None = None
+        lon_f: float | None = None
+        if lat_raw is not None and lon_raw is not None:
+            try:
+                lat_c = float(lat_raw)
+                lon_c = float(lon_raw)
+                if -90.0 <= lat_c <= 90.0 and -180.0 <= lon_c <= 180.0:
+                    lat_f = lat_c
+                    lon_f = lon_c
+            except (ValueError, TypeError):
+                pass
 
         # Determine live status
-        live_val = data.get("live") or data.get("is_live") or data.get("status")
+        live_val = data.get("live") or data.get("is_live") or data.get("status") or data.get("connectivity_status")
         is_live = False
         if isinstance(live_val, bool):
             is_live = live_val
@@ -84,7 +107,9 @@ class CameraCatalogItem:
         return cls(
             camera_id=cam_id,
             name=name,
-            location=location,
+            location=str(location).strip() if location is not None else None,
+            latitude=lat_f,
+            longitude=lon_f,
             codec=str(codec) if codec else None,
             is_live=is_live,
             rtsp_url=str(rtsp_url) if rtsp_url else None,
@@ -93,6 +118,7 @@ class CameraCatalogItem:
             width=int(width) if width is not None else None,
             height=int(height) if height is not None else None,
             fps_hint=float(fps_hint) if fps_hint is not None else None,
+            department=str(department).strip() if department is not None else None,
             properties=props if isinstance(props, dict) else {},
             raw_data=data,
         )
@@ -119,7 +145,7 @@ class CameraCatalog:
         timeout_seconds: float = 10.0,
     ) -> None:
         self.catalog_url = catalog_url or os.environ.get(
-            "RTSP_CATALOG_URL", "http://live.corp8.cloud/api/ingest"
+            "RTSP_CATALOG_URL", "https://cctv.corp8.cloud/cameras.json"
         )
         self.auth_token = auth_token or os.environ.get("RTSP_CATALOG_TOKEN")
         self.timeout_seconds = timeout_seconds
@@ -186,13 +212,29 @@ class CameraCatalog:
                 requires_auth=requires_auth,
                 error_message=f"HTTP {e.code}: {e.reason}",
             )
+        except TimeoutError as e:
+            logger.warning("Timeout querying catalogue %s: %s", target_url, e)
+            return CatalogFetchResult(
+                success=False,
+                error_message=f"Network timeout: {e}",
+            )
         except urllib.error.URLError as e:
+            if "timed out" in str(getattr(e, "reason", "")).lower():
+                return CatalogFetchResult(
+                    success=False,
+                    error_message=f"Network timeout: {e.reason}",
+                )
             logger.warning("Network error querying catalogue %s: %s", target_url, e)
             return CatalogFetchResult(
                 success=False,
                 error_message=f"Network error: {e.reason}",
             )
         except Exception as e:
+            if "timed out" in str(e).lower():
+                return CatalogFetchResult(
+                    success=False,
+                    error_message=f"Network timeout: {e}",
+                )
             logger.error("Unexpected error fetching catalogue: %s", e)
             return CatalogFetchResult(
                 success=False,

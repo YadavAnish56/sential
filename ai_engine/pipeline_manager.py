@@ -113,6 +113,11 @@ class CameraPipelineSession:
         self._frames_processed = 0
         self._last_processed_pts_ms: float | None = None
 
+        # Most recent frame's tracked boxes, kept so the UI can draw overlays.
+        # Coordinates are normalised 0..1 against the frame, so the browser can
+        # scale them to whatever size the video is displayed at.
+        self._last_overlay: dict[str, Any] | None = None
+
         self._lock = threading.RLock()
         self._thread: threading.Thread | None = None
         self._stop_event = threading.Event()
@@ -209,6 +214,18 @@ class CameraPipelineSession:
 
             self._status = PipelineSessionStatus.STOPPED
             self._thread = None
+
+            # Clear telemetry so a stopped pipeline reports nothing rather than
+            # its final reading; leaving the counters up made the dashboards
+            # look live long after the AI had been stopped.
+            self._frames_processed = 0
+            self._last_processed_pts_ms = None
+            self._last_overlay = None
+            try:
+                self.pipeline.reset_stats()
+            except Exception as exc:  # never let telemetry cleanup fail a stop
+                logger.warning("Could not reset stats for camera %s: %s", self.camera_id, exc)
+
             logger.info("Pipeline session stopped for camera %s", self.camera_id)
             return True
 
@@ -221,9 +238,13 @@ class CameraPipelineSession:
         """
         result = self.pipeline.process_frame(packet)
 
+        overlay = _build_overlay(result, packet)
+
         with self._lock:
             self._frames_processed += 1
             self._last_processed_pts_ms = packet.pts_ms
+            if overlay is not None:
+                self._last_overlay = overlay
 
         # Dispatch recognized plates to persistence dispatcher if configured
         if self.dispatcher is not None and result.recognized_plates:
@@ -290,7 +311,89 @@ class CameraPipelineSession:
                 "error_message": self._error_message,
                 "pipeline_stats": stats,
                 "stream_health": stream_health,
+                "overlay": self._last_overlay if self._status == PipelineSessionStatus.RUNNING else None,
             }
+
+
+
+def _normalise_box(bbox, width: int, height: int) -> list[float] | None:
+    """
+    Convert a pixel bounding box to fractions of the frame.
+
+    The browser scales the video to fit its panel, so pixel coordinates from the
+    decoder are meaningless to it. Fractions survive any display size.
+    """
+    if not bbox or len(bbox) < 4 or not width or not height:
+        return None
+    x1, y1, x2, y2 = (float(v) for v in bbox[:4])
+    if x2 <= x1 or y2 <= y1:
+        return None
+    box = [x1 / width, y1 / height, (x2 - x1) / width, (y2 - y1) / height]
+    # Clamp to the frame: a tracker may predict slightly outside it.
+    box = [min(max(v, 0.0), 1.0) for v in box]
+    if box[2] <= 0.0 or box[3] <= 0.0:
+        return None
+    return [round(v, 5) for v in box]
+
+
+def _build_overlay(result: PipelineResult, packet: FramePacket) -> dict[str, Any] | None:
+    """
+    Build the draw list for one frame: every tracked vehicle, with the plate
+    read for it when ANPR produced one.
+
+    Returns None for a skipped frame so the last real overlay stays on screen
+    instead of blinking out between sampled frames.
+    """
+    if result is None or result.skipped:
+        return None
+
+    tracking = result.tracking_result
+    if tracking is None:
+        return {"pts_ms": packet.pts_ms, "width": packet.width, "height": packet.height, "boxes": []}
+
+    # Plate reads are keyed by track so a box can be labelled with its plate.
+    plate_by_track: dict[int, dict[str, Any]] = {}
+    for anpr in (result.anpr_results or []):
+        track_id = getattr(anpr, "track_id", None)
+        if track_id is None:
+            continue
+        plate = getattr(anpr, "normalized_plate", "") or ""
+        status = getattr(anpr, "status", "")
+        if not plate:
+            continue
+        existing = plate_by_track.get(track_id)
+        confidence = float(getattr(anpr, "confidence", 0.0) or 0.0)
+        if existing is None or confidence > existing["confidence"]:
+            plate_by_track[track_id] = {
+                "plate": plate,
+                "confidence": round(confidence, 4),
+                "status": status,
+            }
+
+    boxes: list[dict[str, Any]] = []
+    for track in (tracking.active_tracks or []):
+        box = _normalise_box(getattr(track, "bbox", None), packet.width, packet.height)
+        if box is None:
+            continue
+        plate_info = plate_by_track.get(getattr(track, "track_id", None))
+        boxes.append(
+            {
+                "track_id": getattr(track, "track_id", None),
+                "label": getattr(track, "class_name", "vehicle"),
+                "confidence": round(float(getattr(track, "confidence", 0.0) or 0.0), 4),
+                "box": box,
+                "plate": (plate_info or {}).get("plate"),
+                "plate_confidence": (plate_info or {}).get("confidence"),
+                "plate_status": (plate_info or {}).get("status"),
+            }
+        )
+
+    return {
+        "pts_ms": packet.pts_ms,
+        "width": packet.width,
+        "height": packet.height,
+        "boxes": boxes,
+    }
 
 
 class CameraPipelineManager:

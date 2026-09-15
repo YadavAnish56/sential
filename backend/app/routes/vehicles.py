@@ -7,6 +7,7 @@ from app.database.dependencies import get_db
 from app.models.vehicle import Vehicle
 from app.models.event import Event
 from app.models.camera import Camera
+from app.schemas.camera import sanitize_coordinates
 from app.schemas.vehicle import (
     VehicleCreate,
     VehicleResponse,
@@ -83,20 +84,26 @@ def get_vehicle_timeline(plate_number: str, db: Session = Depends(get_db)):
         .all()
     )
 
-    timeline = [
-        VehicleTimelineEntry(
-            event_id=event.id,
-            camera_id=camera.id,
-            camera_code=camera.camera_code,
-            camera_name=camera.name,
-            location=camera.location,
-            event_type=event.event_type,
-            confidence=event.confidence,
-            timestamp=event.timestamp,
-            snapshot_path=event.snapshot_path,
+    # An event has no coordinates of its own — it inherits the position of the
+    # camera that recorded it, so the map can plot the vehicle's movement.
+    timeline = []
+    for event, camera in results:
+        lat, lon = sanitize_coordinates(camera.latitude, camera.longitude)
+        timeline.append(
+            VehicleTimelineEntry(
+                event_id=event.id,
+                camera_id=camera.id,
+                camera_code=camera.camera_code,
+                camera_name=camera.name,
+                location=camera.location,
+                latitude=lat,
+                longitude=lon,
+                event_type=event.event_type,
+                confidence=event.confidence,
+                timestamp=event.timestamp,
+                snapshot_path=event.snapshot_path,
+            )
         )
-        for event, camera in results
-    ]
 
     return VehicleTimelineResponse(
         plate_number=vehicle.plate_number,
